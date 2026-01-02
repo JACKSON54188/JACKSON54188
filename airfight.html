@@ -172,12 +172,34 @@
         let scoreInterval = null;
         let fireRate = 200;
         let tripleShot = false;
+        let bulletSize = 1;
+        let collectedBuffTypes = new Set();
+        let cheatCode = '';
+        let cheatTimeout = null;
 
         // Controls
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (e.key === ' ' && gameRunning) {
                 shootBullet();
+            }
+
+            // Cheat code detection
+            const key = e.key.toLowerCase();
+            if (['c', 'h', 'e', 'a', 't'].includes(key)) {
+                cheatCode += key;
+
+                clearTimeout(cheatTimeout);
+                cheatTimeout = setTimeout(() => {
+                    cheatCode = '';
+                }, 2000);
+
+                if (cheatCode === 'cheat') {
+                    cheatCode = '';
+                    activateCheat();
+                }
+            } else {
+                cheatCode = '';
             }
         });
 
@@ -186,40 +208,43 @@
         });
 
         function shootBullet() {
+            const bulletWidth = 5 * bulletSize;
+            const bulletHeight = 15 * bulletSize;
+
             if (tripleShot) {
                 // Center bullet
                 bullets.push({
-                    x: player.x + player.width / 2 - 2.5,
+                    x: player.x + player.width / 2 - bulletWidth / 2,
                     y: player.y,
-                    width: 5,
-                    height: 15,
+                    width: bulletWidth,
+                    height: bulletHeight,
                     speed: 7,
                     color: '#ffff00'
                 });
                 // Left bullet
                 bullets.push({
-                    x: player.x + player.width / 2 - 15,
+                    x: player.x + player.width / 2 - 15 - bulletWidth / 2,
                     y: player.y,
-                    width: 5,
-                    height: 15,
+                    width: bulletWidth,
+                    height: bulletHeight,
                     speed: 7,
                     color: '#ffff00'
                 });
                 // Right bullet
                 bullets.push({
-                    x: player.x + player.width / 2 + 10,
+                    x: player.x + player.width / 2 + 10 - bulletWidth / 2,
                     y: player.y,
-                    width: 5,
-                    height: 15,
+                    width: bulletWidth,
+                    height: bulletHeight,
                     speed: 7,
                     color: '#ffff00'
                 });
             } else {
                 bullets.push({
-                    x: player.x + player.width / 2 - 2.5,
+                    x: player.x + player.width / 2 - bulletWidth / 2,
                     y: player.y,
-                    width: 5,
-                    height: 15,
+                    width: bulletWidth,
+                    height: bulletHeight,
                     speed: 7,
                     color: '#ffff00'
                 });
@@ -242,9 +267,34 @@
         }
 
         function createPowerup() {
-            const types = ['A', 'B', 'C', 'D'];
-            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffaa00'];
-            const type = types[Math.floor(Math.random() * types.length)];
+            const types = ['A', 'B', 'C', 'D', 'E'];
+            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffaa00', '#ffff00'];
+
+            // Calculate weighted probabilities based on collected buffs
+            let weights = types.map(type => {
+                // Base weight is 1
+                let weight = 1;
+                // If this type hasn't been collected, increase weight
+                if (!collectedBuffTypes.has(type)) {
+                    weight *= 2;
+                }
+                return weight;
+            });
+
+            // Weighted random selection
+            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+            let random = Math.random() * totalWeight;
+            let selectedIndex = 0;
+
+            for (let i = 0; i < weights.length; i++) {
+                random -= weights[i];
+                if (random <= 0) {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+
+            const type = types[selectedIndex];
             powerups.push({
                 x: Math.random() * (canvas.width - 30),
                 y: -30,
@@ -263,7 +313,17 @@
                 // Check collision with player
                 if (checkCollision(player, powerup)) {
                     activatePowerup(powerup.type);
+                    collectedBuffTypes.add(powerup.type);
                     return false;
+                }
+
+                // Check collision with wingplanes
+                for (let i = 0; i < wingplanes.length; i++) {
+                    if (!wingplanes[i].spawning && checkCollision(wingplanes[i], powerup)) {
+                        activatePowerup(powerup.type);
+                        collectedBuffTypes.add(powerup.type);
+                        return false;
+                    }
                 }
 
                 return powerup.y < canvas.height;
@@ -289,7 +349,38 @@
                 if (wingplanes.length < 2) {
                     spawnWingplanes();
                 }
+            } else if (type === 'E') {
+                // Increase bullet size - stackable
+                bulletSize = Math.min(3, bulletSize + 0.5);
             }
+        }
+
+        function activateCheat() {
+            if (!gameRunning) return;
+
+            // Activate all buffs to max
+            fireRate = 50; // Max fire rate
+            tripleShot = true;
+            bulletSize = 3; // Max bullet size
+            health = 100;
+            shield = 200; // Max shield
+
+            // Spawn wingplanes if not already present
+            if (wingplanes.length === 0) {
+                spawnWingplanes();
+            }
+
+            // Mark all buffs as collected
+            collectedBuffTypes.add('A');
+            collectedBuffTypes.add('B');
+            collectedBuffTypes.add('C');
+            collectedBuffTypes.add('D');
+            collectedBuffTypes.add('E');
+
+            // Update displays
+            document.getElementById('health').textContent = health;
+            updateShieldDisplay();
+            startAutoFire();
         }
 
         function spawnWingplanes() {
@@ -379,41 +470,44 @@
         function wingplanesShoot() {
             wingplanes.forEach(wingplane => {
                 if (!wingplane.spawning) {
-                    // Wingplanes benefit from triple shot buff
+                    const bulletWidth = 5 * bulletSize;
+                    const bulletHeight = 15 * bulletSize;
+
+                    // Wingplanes benefit from triple shot buff and bullet size
                     if (tripleShot) {
                         // Center bullet
                         bullets.push({
-                            x: wingplane.x + wingplane.width / 2 - 2.5,
+                            x: wingplane.x + wingplane.width / 2 - bulletWidth / 2,
                             y: wingplane.y,
-                            width: 5,
-                            height: 15,
+                            width: bulletWidth,
+                            height: bulletHeight,
                             speed: 7,
                             color: '#ffaa00'
                         });
                         // Left bullet
                         bullets.push({
-                            x: wingplane.x + wingplane.width / 2 - 12,
+                            x: wingplane.x + wingplane.width / 2 - 12 - bulletWidth / 2,
                             y: wingplane.y,
-                            width: 5,
-                            height: 15,
+                            width: bulletWidth,
+                            height: bulletHeight,
                             speed: 7,
                             color: '#ffaa00'
                         });
                         // Right bullet
                         bullets.push({
-                            x: wingplane.x + wingplane.width / 2 + 7,
+                            x: wingplane.x + wingplane.width / 2 + 7 - bulletWidth / 2,
                             y: wingplane.y,
-                            width: 5,
-                            height: 15,
+                            width: bulletWidth,
+                            height: bulletHeight,
                             speed: 7,
                             color: '#ffaa00'
                         });
                     } else {
                         bullets.push({
-                            x: wingplane.x + wingplane.width / 2 - 2.5,
+                            x: wingplane.x + wingplane.width / 2 - bulletWidth / 2,
                             y: wingplane.y,
-                            width: 5,
-                            height: 15,
+                            width: bulletWidth,
+                            height: bulletHeight,
                             speed: 7,
                             color: '#ffaa00'
                         });
@@ -651,6 +745,8 @@
                     icon = '❤️'; // Heart for health/shield
                 } else if (powerup.type === 'D') {
                     icon = '✈️'; // Plane for wingplanes
+                } else if (powerup.type === 'E') {
+                    icon = '💥'; // Explosion for bigger bullets
                 }
 
                 ctx.fillText(icon, powerup.x + powerup.width / 2, powerup.y + powerup.height / 2);
@@ -724,6 +820,8 @@
             shield = 0;
             fireRate = 200;
             tripleShot = false;
+            bulletSize = 1;
+            collectedBuffTypes.clear();
             gameRunning = true;
             document.getElementById('score').textContent = score;
             document.getElementById('health').textContent = health;
