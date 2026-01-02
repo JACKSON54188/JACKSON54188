@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Fight Game</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .home-btn {
+            background: linear-gradient(45deg, #2196F3, #03A9F4);
+            font-size: 20px;
+            padding: 12px 30px;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            color: white;
+            text-decoration: none;
+            z-index: 1000;
+        }
+
+        .home-btn:hover {
+            background: linear-gradient(45deg, #1976D2, #0288D1);
+            transform: scale(1.05);
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(180deg, #0a1128 0%, #001f54 100%);
+            border: 3px solid #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .game-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+            z-index: 100;
+        }
+
+        .shield-bar {
+            width: 200px;
+            height: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .shield-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ffff);
+            transition: width 0.3s;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            font-size: 48px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+            margin: 20px 0;
+        }
+
+        .game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 200;
+        }
+
+        .game-over-screen h2 {
+            color: #ff4444;
+            font-size: 48px;
+            margin: 0 0 20px 0;
+        }
+
+        .game-over-screen p {
+            color: white;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        .game-over-screen button {
+            background: linear-gradient(45deg, #00ff87, #60efff);
+            color: #1a1a1a;
+            font-size: 24px;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        .game-over-screen button:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" style="text-decoration: none;">
+        <button class="home-btn">🏠 Back to Home</button>
+    </a>
+
+    <h1>✈️ Air Fight ✈️</h1>
+
+    <div class="game-info">
+        <div>Score: <span id="score">0</span></div>
+        <div>Health: <span id="health">100</span></div>
+        <div id="shieldContainer" style="display: none;">
+            Shield: <span id="shield">0</span>
+            <div class="shield-bar">
+                <div class="shield-fill" id="shieldFill" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div class="game-over-screen" id="gameOver">
+        <h2>Game Over!</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 80,
+            width: 50,
+            height: 50,
+            speed: 3,
+            color: '#00ff87'
+        };
+
+        let bullets = [];
+        let enemies = [];
+        let enemyBullets = [];
+        let powerups = [];
+        let wingplanes = [];
+        let score = 0;
+        let health = 100;
+        let shield = 0;
+        let gameRunning = true;
+        let keys = {};
+        let autoFireInterval = null;
+        let scoreInterval = null;
+        let fireRate = 200;
+        let tripleShot = false;
+
+        // Controls
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ' && gameRunning) {
+                shootBullet();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function shootBullet() {
+            if (tripleShot) {
+                // Center bullet
+                bullets.push({
+                    x: player.x + player.width / 2 - 2.5,
+                    y: player.y,
+                    width: 5,
+                    height: 15,
+                    speed: 7,
+                    color: '#ffff00'
+                });
+                // Left bullet
+                bullets.push({
+                    x: player.x + player.width / 2 - 15,
+                    y: player.y,
+                    width: 5,
+                    height: 15,
+                    speed: 7,
+                    color: '#ffff00'
+                });
+                // Right bullet
+                bullets.push({
+                    x: player.x + player.width / 2 + 10,
+                    y: player.y,
+                    width: 5,
+                    height: 15,
+                    speed: 7,
+                    color: '#ffff00'
+                });
+            } else {
+                bullets.push({
+                    x: player.x + player.width / 2 - 2.5,
+                    y: player.y,
+                    width: 5,
+                    height: 15,
+                    speed: 7,
+                    color: '#ffff00'
+                });
+            }
+        }
+
+        function createEnemy() {
+            const canShoot = score >= 1000 && Math.random() < (0.2 + Math.min((score - 1000) / 10000, 0.3));
+            enemies.push({
+                x: Math.random() * (canvas.width - 40),
+                y: -50,
+                width: 40,
+                height: 40,
+                speed: 1 + Math.random() * 1,
+                horizontalSpeed: (Math.random() - 0.5) * 2,
+                color: canShoot ? '#ff9900' : '#ff4444',
+                canShoot: canShoot,
+                lastShot: 0
+            });
+        }
+
+        function createPowerup() {
+            const types = ['A', 'B', 'C', 'D'];
+            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffaa00'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            powerups.push({
+                x: Math.random() * (canvas.width - 30),
+                y: -30,
+                width: 30,
+                height: 30,
+                speed: 2,
+                type: type,
+                color: colors[types.indexOf(type)]
+            });
+        }
+
+        function updatePowerups() {
+            powerups = powerups.filter(powerup => {
+                powerup.y += powerup.speed;
+
+                // Check collision with player
+                if (checkCollision(player, powerup)) {
+                    activatePowerup(powerup.type);
+                    return false;
+                }
+
+                return powerup.y < canvas.height;
+            });
+        }
+
+        function activatePowerup(type) {
+            if (type === 'A') {
+                // Increase shooting speed - stackable
+                fireRate = Math.max(50, fireRate - 30);
+                startAutoFire();
+            } else if (type === 'B') {
+                // Triple shot - just set to true (already stackable in effect)
+                tripleShot = true;
+            } else if (type === 'C') {
+                // Restore health and add shield - stackable shield
+                health = Math.min(100, health + 50);
+                shield = Math.min(200, shield + 50);
+                document.getElementById('health').textContent = health;
+                updateShieldDisplay();
+            } else if (type === 'D') {
+                // Spawn wingplanes - limit to 2
+                if (wingplanes.length < 2) {
+                    spawnWingplanes();
+                }
+            }
+        }
+
+        function spawnWingplanes() {
+            // Left wingplane
+            wingplanes.push({
+                x: player.x - 60,
+                y: canvas.height + 50,
+                targetY: player.y + 10,
+                width: 35,
+                height: 35,
+                health: 1,
+                side: 'left',
+                color: '#ffaa00',
+                spawning: true
+            });
+            // Right wingplane
+            wingplanes.push({
+                x: player.x + player.width + 25,
+                y: canvas.height + 50,
+                targetY: player.y + 10,
+                width: 35,
+                height: 35,
+                health: 1,
+                side: 'right',
+                color: '#ffaa00',
+                spawning: true
+            });
+        }
+
+        function updateWingplanes() {
+            wingplanes = wingplanes.filter(wingplane => {
+                if (wingplane.spawning) {
+                    // Fly up from bottom
+                    wingplane.y -= 5;
+                    if (wingplane.y <= wingplane.targetY) {
+                        wingplane.spawning = false;
+                        wingplane.y = wingplane.targetY;
+                    }
+                } else {
+                    // Follow player
+                    if (wingplane.side === 'left') {
+                        wingplane.x = player.x - 60;
+                    } else {
+                        wingplane.x = player.x + player.width + 25;
+                    }
+                    wingplane.y = player.y + 10;
+                }
+
+                // Check collision with enemy bullets - protected by shield if active
+                for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                    if (checkCollision(wingplane, enemyBullets[i])) {
+                        enemyBullets.splice(i, 1);
+                        if (shield > 0) {
+                            // Shield protects wingplane
+                            shield = Math.max(0, shield - 10);
+                            updateShieldDisplay();
+                        } else {
+                            // No shield, wingplane takes damage
+                            wingplane.health -= 1;
+                        }
+                        break;
+                    }
+                }
+
+                // Check collision with enemies - protected by shield if active
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    if (checkCollision(wingplane, enemies[i])) {
+                        enemies.splice(i, 1);
+                        score += 25;
+                        document.getElementById('score').textContent = score;
+                        if (shield > 0) {
+                            // Shield protects wingplane
+                            shield = Math.max(0, shield - 10);
+                            updateShieldDisplay();
+                        } else {
+                            // No shield, wingplane takes damage
+                            wingplane.health -= 1;
+                        }
+                        break;
+                    }
+                }
+
+                return wingplane.health > 0;
+            });
+        }
+
+        function wingplanesShoot() {
+            wingplanes.forEach(wingplane => {
+                if (!wingplane.spawning) {
+                    // Wingplanes benefit from triple shot buff
+                    if (tripleShot) {
+                        // Center bullet
+                        bullets.push({
+                            x: wingplane.x + wingplane.width / 2 - 2.5,
+                            y: wingplane.y,
+                            width: 5,
+                            height: 15,
+                            speed: 7,
+                            color: '#ffaa00'
+                        });
+                        // Left bullet
+                        bullets.push({
+                            x: wingplane.x + wingplane.width / 2 - 12,
+                            y: wingplane.y,
+                            width: 5,
+                            height: 15,
+                            speed: 7,
+                            color: '#ffaa00'
+                        });
+                        // Right bullet
+                        bullets.push({
+                            x: wingplane.x + wingplane.width / 2 + 7,
+                            y: wingplane.y,
+                            width: 5,
+                            height: 15,
+                            speed: 7,
+                            color: '#ffaa00'
+                        });
+                    } else {
+                        bullets.push({
+                            x: wingplane.x + wingplane.width / 2 - 2.5,
+                            y: wingplane.y,
+                            width: 5,
+                            height: 15,
+                            speed: 7,
+                            color: '#ffaa00'
+                        });
+                    }
+                }
+            });
+        }
+
+        function updateShieldDisplay() {
+            const shieldContainer = document.getElementById('shieldContainer');
+            const shieldSpan = document.getElementById('shield');
+            const shieldFill = document.getElementById('shieldFill');
+
+            if (shield > 0) {
+                shieldContainer.style.display = 'block';
+                shieldSpan.textContent = shield;
+                shieldFill.style.width = shield + '%';
+            } else {
+                shieldContainer.style.display = 'none';
+            }
+        }
+
+        function updatePlayer() {
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+            if (keys['ArrowUp'] && player.y > 0) {
+                player.y -= player.speed;
+            }
+            if (keys['ArrowDown'] && player.y < canvas.height - player.height) {
+                player.y += player.speed;
+            }
+        }
+
+        function updateBullets() {
+            bullets = bullets.filter(bullet => {
+                bullet.y -= bullet.speed;
+                return bullet.y > 0;
+            });
+        }
+
+        function updateEnemies() {
+            const currentTime = Date.now();
+            enemies = enemies.filter(enemy => {
+                enemy.y += enemy.speed;
+                enemy.x += enemy.horizontalSpeed;
+
+                // Bounce off walls
+                if (enemy.x <= 0 || enemy.x >= canvas.width - enemy.width) {
+                    enemy.horizontalSpeed *= -1;
+                }
+
+                // Enemy shooting
+                if (enemy.canShoot && currentTime - enemy.lastShot > 1500) {
+                    enemyShoot(enemy);
+                    enemy.lastShot = currentTime;
+                }
+
+                // Check collision with player
+                if (checkCollision(player, enemy)) {
+                    if (shield > 0) {
+                        shield = Math.max(0, shield - 10);
+                        updateShieldDisplay();
+                    } else {
+                        health -= 20;
+                        document.getElementById('health').textContent = health;
+                        if (health <= 0) {
+                            endGame();
+                        }
+                    }
+                    return false;
+                }
+
+                return enemy.y < canvas.height;
+            });
+        }
+
+        function enemyShoot(enemy) {
+            enemyBullets.push({
+                x: enemy.x + enemy.width / 2 - 2.5,
+                y: enemy.y + enemy.height,
+                width: 5,
+                height: 15,
+                speed: 4,
+                color: '#ff9900'
+            });
+        }
+
+        function updateEnemyBullets() {
+            enemyBullets = enemyBullets.filter(bullet => {
+                bullet.y += bullet.speed;
+
+                // Check collision with player
+                if (checkCollision(player, bullet)) {
+                    if (shield > 0) {
+                        shield = Math.max(0, shield - 10);
+                        updateShieldDisplay();
+                    } else {
+                        health -= 10;
+                        document.getElementById('health').textContent = health;
+                        if (health <= 0) {
+                            endGame();
+                        }
+                    }
+                    return false;
+                }
+
+                return bullet.y < canvas.height;
+            });
+        }
+
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        function checkBulletCollisions() {
+            bullets = bullets.filter(bullet => {
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    if (checkCollision(bullet, enemies[i])) {
+                        enemies.splice(i, 1);
+                        score += 25;
+                        document.getElementById('score').textContent = score;
+                        return false;
+                    }
+                }
+                return true;
+            });
+        }
+
+        function startAutoScore() {
+            if (scoreInterval) {
+                clearInterval(scoreInterval);
+            }
+            scoreInterval = setInterval(() => {
+                if (gameRunning) {
+                    score += 15;
+                    document.getElementById('score').textContent = score;
+                }
+            }, 1000);
+        }
+
+        function drawPlayer() {
+            // Draw shield if active
+            if (shield > 0) {
+                const shieldRadius = player.width * 0.9;
+                const shieldOpacity = Math.min(shield / 100, 1);
+
+                // Outer shield glow
+                ctx.strokeStyle = `rgba(0, 212, 255, ${shieldOpacity * 0.6})`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(player.x + player.width / 2, player.y + player.height / 2, shieldRadius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Inner shield
+                ctx.strokeStyle = `rgba(0, 255, 255, ${shieldOpacity * 0.4})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(player.x + player.width / 2, player.y + player.height / 2, shieldRadius - 5, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Shield sparkles
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Date.now() / 1000 + i * Math.PI / 3) % (Math.PI * 2);
+                    const sparkleX = player.x + player.width / 2 + Math.cos(angle) * shieldRadius;
+                    const sparkleY = player.y + player.height / 2 + Math.sin(angle) * shieldRadius;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${shieldOpacity * 0.8})`;
+                    ctx.beginPath();
+                    ctx.arc(sparkleX, sparkleY, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 2, player.y);
+            ctx.lineTo(player.x, player.y + player.height);
+            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawBullets() {
+            bullets.forEach(bullet => {
+                ctx.fillStyle = bullet.color;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+
+            enemyBullets.forEach(bullet => {
+                ctx.fillStyle = bullet.color;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+        }
+
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+                // Draw indicator for shooting enemies
+                if (enemy.canShoot) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(enemy.x + enemy.width / 2 - 3, enemy.y + 5, 6, 6);
+                }
+            });
+        }
+
+        function drawPowerups() {
+            powerups.forEach(powerup => {
+                // Draw background circle
+                ctx.fillStyle = powerup.color;
+                ctx.beginPath();
+                ctx.arc(powerup.x + powerup.width / 2, powerup.y + powerup.height / 2, powerup.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw icon based on type
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                let icon = '';
+                if (powerup.type === 'A') {
+                    icon = '⚡'; // Lightning for speed
+                } else if (powerup.type === 'B') {
+                    icon = '⚔️'; // Crossed swords for triple shot
+                } else if (powerup.type === 'C') {
+                    icon = '❤️'; // Heart for health/shield
+                } else if (powerup.type === 'D') {
+                    icon = '✈️'; // Plane for wingplanes
+                }
+
+                ctx.fillText(icon, powerup.x + powerup.width / 2, powerup.y + powerup.height / 2);
+            });
+        }
+
+        function drawWingplanes() {
+            wingplanes.forEach(wingplane => {
+                // Draw shield if player has shield and wingplane is active
+                if (shield > 0 && !wingplane.spawning) {
+                    const shieldRadius = wingplane.width * 0.7;
+                    const shieldOpacity = Math.min(shield / 100, 1) * 0.6;
+
+                    // Outer shield glow
+                    ctx.strokeStyle = `rgba(0, 212, 255, ${shieldOpacity * 0.6})`;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(wingplane.x + wingplane.width / 2, wingplane.y + wingplane.height / 2, shieldRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Inner shield
+                    ctx.strokeStyle = `rgba(0, 255, 255, ${shieldOpacity * 0.4})`;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(wingplane.x + wingplane.width / 2, wingplane.y + wingplane.height / 2, shieldRadius - 3, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Draw wingplane
+                ctx.fillStyle = wingplane.color;
+                ctx.beginPath();
+                ctx.moveTo(wingplane.x + wingplane.width / 2, wingplane.y);
+                ctx.lineTo(wingplane.x, wingplane.y + wingplane.height);
+                ctx.lineTo(wingplane.x + wingplane.width, wingplane.y + wingplane.height);
+                ctx.closePath();
+                ctx.fill();
+            });
+        }
+
+        function drawStars() {
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < 50; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                ctx.fillRect(x, y, 2, 2);
+            }
+        }
+
+        function endGame() {
+            gameRunning = false;
+            if (autoFireInterval) {
+                clearInterval(autoFireInterval);
+            }
+            if (scoreInterval) {
+                clearInterval(scoreInterval);
+            }
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            player.x = canvas.width / 2 - 25;
+            player.y = canvas.height - 80;
+            bullets = [];
+            enemies = [];
+            enemyBullets = [];
+            powerups = [];
+            wingplanes = [];
+            score = 0;
+            health = 100;
+            shield = 0;
+            fireRate = 200;
+            tripleShot = false;
+            gameRunning = true;
+            document.getElementById('score').textContent = score;
+            document.getElementById('health').textContent = health;
+            updateShieldDisplay();
+            document.getElementById('gameOver').style.display = 'none';
+            startAutoFire();
+            startAutoScore();
+            gameLoop();
+        }
+
+        function startAutoFire() {
+            if (autoFireInterval) {
+                clearInterval(autoFireInterval);
+            }
+            autoFireInterval = setInterval(() => {
+                if (gameRunning) {
+                    shootBullet();
+                    wingplanesShoot();
+                }
+            }, fireRate);
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawStars();
+            updatePlayer();
+            updateBullets();
+            updateEnemies();
+            updateEnemyBullets();
+            updatePowerups();
+            updateWingplanes();
+            checkBulletCollisions();
+
+            drawPlayer();
+            drawWingplanes();
+            drawBullets();
+            drawEnemies();
+            drawPowerups();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Spawn enemies periodically - spawn 3 enemies every 800ms
+        setInterval(() => {
+            if (gameRunning) {
+                createEnemy();
+                createEnemy();
+                createEnemy();
+            }
+        }, 800);
+
+        // Spawn powerups periodically - base 5 seconds, increases with score
+        setInterval(() => {
+            if (gameRunning) {
+                // Calculate spawn chance based on score
+                const baseChance = 0.3; // 30% base chance
+                const scoreBonus = Math.min(score / 5000, 0.7); // Up to 70% bonus at 5000+ score
+                const spawnChance = baseChance + scoreBonus;
+
+                if (Math.random() < spawnChance) {
+                    createPowerup();
+                }
+            }
+        }, 5000);
+
+        // Start auto-fire
+        startAutoFire();
+
+        // Start auto-score
+        startAutoScore();
+
+        // Start game
+        gameLoop();
+    </script>
+</body>
+</html>
