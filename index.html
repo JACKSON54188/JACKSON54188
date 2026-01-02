@@ -177,6 +177,8 @@
         let gameFinished = false;
         let leaderboard = JSON.parse(localStorage.getItem('clickGameLeaderboard')) || [];
         let playerName = localStorage.getItem('clickGamePlayerName') || '';
+        let cheatCode = '';
+        let cheatTimeout = null;
 
         if (!playerName) {
             playerName = prompt('Welcome! Please enter your name:') || 'Guest';
@@ -272,7 +274,38 @@
             if (event.key === 'f' || event.key === 'F') {
                 incrementCounter();
             }
+
+            // Cheat code detection
+            const key = event.key.toLowerCase();
+            if (['c', 'h', 'e', 'a', 't'].includes(key)) {
+                cheatCode += key;
+
+                clearTimeout(cheatTimeout);
+                cheatTimeout = setTimeout(() => {
+                    cheatCode = '';
+                }, 2000);
+
+                if (cheatCode === 'cheat') {
+                    cheatCode = '';
+                    activateCheat();
+                }
+            } else {
+                cheatCode = '';
+            }
         });
+
+        function activateCheat() {
+            if (gameFinished) return;
+
+            if (!startTime) {
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 10);
+            }
+
+            count = 100;
+            document.getElementById('counter').textContent = count;
+            finishGame();
+        }
 
         displayLeaderboard();
     </script>
