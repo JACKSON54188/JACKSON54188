@@ -89,10 +89,72 @@
             margin: 20px 0;
             text-shadow: 3px 3px 10px rgba(0,0,0,0.5);
         }
+
+        .leaderboard {
+            margin: 40px auto;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .leaderboard h2 {
+            font-size: 40px;
+            color: #ffffff;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .leaderboard-entry {
+            font-size: 28px;
+            color: #ffffff;
+            padding: 10px;
+            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
+        }
+
+        .rank-1 { background: linear-gradient(45deg, #ffd700, #ffed4e); color: #1a1a1a; }
+        .rank-2 { background: linear-gradient(45deg, #c0c0c0, #e8e8e8); color: #1a1a1a; }
+        .rank-3 { background: linear-gradient(45deg, #cd7f32, #e89e5f); color: #1a1a1a; }
+
+        .clear-leaderboard-btn {
+            background: linear-gradient(45deg, #9c27b0, #e91e63) !important;
+            font-size: 20px !important;
+            padding: 12px 25px !important;
+        }
+
+        .clear-leaderboard-btn:hover {
+            background: linear-gradient(45deg, #7b1fa2, #c2185b) !important;
+        }
+
+        .player-name {
+            font-size: 24px;
+            color: #ffffff;
+            margin-top: 10px;
+        }
+
+        .change-name-btn {
+            background: linear-gradient(45deg, #ffa726, #fb8c00) !important;
+            font-size: 18px !important;
+            padding: 10px 20px !important;
+            margin-left: 10px !important;
+        }
+
+        .change-name-btn:hover {
+            background: linear-gradient(45deg, #ff9800, #f57c00) !important;
+        }
     </style>
 </head>
 <body>
     <h1>Click Challenge Game</h1>
+    <p class="player-name">
+        Player: <span id="player-name-display">Guest</span>
+        <button class="change-name-btn" onclick="changeName()">Change Name</button>
+    </p>
     <p>Click 100 times as fast as you can! (Press F or click the button)</p>
     <button onclick="incrementCounter()">Click Me!</button>
     <button onclick="resetCounter()">Reset Game</button>
@@ -100,11 +162,27 @@
     <p>Time: <span id="timer">0.00</span> seconds</p>
     <p id="result"></p>
 
+    <div class="leaderboard">
+        <h2>🏆 Leaderboard 🏆</h2>
+        <div id="leaderboard-list">
+            <p style="font-size: 24px; color: rgba(255,255,255,0.7);">No records yet. Complete a game to set a record!</p>
+        </div>
+        <button class="clear-leaderboard-btn" onclick="clearLeaderboard()">Clear Leaderboard</button>
+    </div>
+
     <script>
         let count = 0;
         let startTime = null;
         let timerInterval = null;
         let gameFinished = false;
+        let leaderboard = JSON.parse(localStorage.getItem('clickGameLeaderboard')) || [];
+        let playerName = localStorage.getItem('clickGamePlayerName') || '';
+
+        if (!playerName) {
+            playerName = prompt('Welcome! Please enter your name:') || 'Guest';
+            localStorage.setItem('clickGamePlayerName', playerName);
+        }
+        document.getElementById('player-name-display').textContent = playerName;
 
         function incrementCounter() {
             if (gameFinished) return;
@@ -130,9 +208,54 @@
         function finishGame() {
             gameFinished = true;
             clearInterval(timerInterval);
-            const finalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            const finalTime = parseFloat(((Date.now() - startTime) / 1000).toFixed(2));
             document.getElementById('result').innerHTML =
                 `<span class="game-over">🎉 You did it in ${finalTime} seconds! 🎉</span>`;
+
+            addToLeaderboard(finalTime);
+        }
+
+        function addToLeaderboard(time) {
+            leaderboard.push({name: playerName, time: time});
+            leaderboard.sort((a, b) => a.time - b.time);
+            leaderboard = leaderboard.slice(0, 10);
+            localStorage.setItem('clickGameLeaderboard', JSON.stringify(leaderboard));
+            displayLeaderboard();
+        }
+
+        function displayLeaderboard() {
+            const listDiv = document.getElementById('leaderboard-list');
+            if (leaderboard.length === 0) {
+                listDiv.innerHTML = '<p style="font-size: 24px; color: rgba(255,255,255,0.7);">No records yet. Complete a game to set a record!</p>';
+                return;
+            }
+
+            let html = '';
+            leaderboard.forEach((entry, index) => {
+                const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : '';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                const time = typeof entry === 'number' ? entry : entry.time;
+                const name = typeof entry === 'number' ? 'Guest' : entry.name;
+                html += `<div class="leaderboard-entry ${rankClass}">${medal} ${index + 1}. ${name} - ${time.toFixed(2)}s</div>`;
+            });
+            listDiv.innerHTML = html;
+        }
+
+        function clearLeaderboard() {
+            if (confirm('Are you sure you want to clear the leaderboard?')) {
+                leaderboard = [];
+                localStorage.setItem('clickGameLeaderboard', JSON.stringify(leaderboard));
+                displayLeaderboard();
+            }
+        }
+
+        function changeName() {
+            const newName = prompt('Enter your new name:', playerName);
+            if (newName && newName.trim() !== '') {
+                playerName = newName.trim();
+                localStorage.setItem('clickGamePlayerName', playerName);
+                document.getElementById('player-name-display').textContent = playerName;
+            }
         }
 
         function resetCounter() {
@@ -150,6 +273,8 @@
                 incrementCounter();
             }
         });
+
+        displayLeaderboard();
     </script>
 </body>
 </html>
