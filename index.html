@@ -4,23 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Basic HTML Page</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            font-family: 'Arial', sans-serif;
+            padding: 60px;
+            text-align: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        p {
+            font-size: 36px;
+            color: #ffffff;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+            font-weight: bold;
+        }
+
+        button {
+            font-size: 28px;
+            padding: 20px 40px;
+            margin: 15px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:first-of-type {
+            background: linear-gradient(45deg, #00ff87, #60efff);
+            color: #1a1a1a;
+        }
+
+        button:first-of-type:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(0,255,135,0.5);
+        }
+
+        button:last-of-type {
+            background: linear-gradient(45deg, #ff006e, #ff6b9d);
+            color: white;
+        }
+
+        button:last-of-type:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(255,0,110,0.5);
+        }
+
+        #counter {
+            font-weight: bold;
+            color: #ffff00;
+            font-size: 48px;
+            text-shadow: 3px 3px 10px rgba(0,0,0,0.5);
+        }
+
+        #timer {
+            font-weight: bold;
+            color: #00ffff;
+            font-size: 48px;
+            text-shadow: 3px 3px 10px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            font-size: 56px;
+            color: #ffffff;
+            text-shadow: 3px 3px 12px rgba(0,0,0,0.4);
+            margin-bottom: 20px;
+        }
+
+        .game-over {
+            font-size: 42px;
+            color: #00ff00;
+            font-weight: bold;
+            margin: 20px 0;
+            text-shadow: 3px 3px 10px rgba(0,0,0,0.5);
+        }
+    </style>
 </head>
 <body>
-    <p>Welcome to this basic HTML page. This is a simple block of text.</p>
-    <button onclick="incrementCounter()">New Button</button>
-    <button onclick="resetCounter()">Reset</button>
-    <p>Button clicked: <span id="counter">0</span> times</p>
+    <h1>Click Challenge Game</h1>
+    <p>Click 100 times as fast as you can! (Press F or click the button)</p>
+    <button onclick="incrementCounter()">Click Me!</button>
+    <button onclick="resetCounter()">Reset Game</button>
+    <p>Clicks: <span id="counter">0</span> / 100</p>
+    <p>Time: <span id="timer">0.00</span> seconds</p>
+    <p id="result"></p>
 
     <script>
         let count = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let gameFinished = false;
+
         function incrementCounter() {
+            if (gameFinished) return;
+
+            if (count === 0) {
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 10);
+            }
+
             count++;
             document.getElementById('counter').textContent = count;
+
+            if (count >= 100) {
+                finishGame();
+            }
         }
+
+        function updateTimer() {
+            const elapsed = (Date.now() - startTime) / 1000;
+            document.getElementById('timer').textContent = elapsed.toFixed(2);
+        }
+
+        function finishGame() {
+            gameFinished = true;
+            clearInterval(timerInterval);
+            const finalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            document.getElementById('result').innerHTML =
+                `<span class="game-over">🎉 You did it in ${finalTime} seconds! 🎉</span>`;
+        }
+
         function resetCounter() {
             count = 0;
+            startTime = null;
+            gameFinished = false;
+            clearInterval(timerInterval);
             document.getElementById('counter').textContent = count;
+            document.getElementById('timer').textContent = '0.00';
+            document.getElementById('result').innerHTML = '';
         }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'f' || event.key === 'F') {
+                incrementCounter();
+            }
+        });
     </script>
 </body>
 </html>
