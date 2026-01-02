@@ -8,5 +8,15 @@
 <body>
     <p>Welcome to this basic HTML page. This is a simple block of text.</p>
     <button onclick="window.location.href='page2.html'">Click Me</button>
+    <button onclick="incrementCounter()">New Button</button>
+    <p>Button clicked: <span id="counter">0</span> times</p>
+
+    <script>
+        let count = 0;
+        function incrementCounter() {
+            count++;
+            document.getElementById('counter').textContent = count;
+        }
+    </script>
 </body>
 </html>
