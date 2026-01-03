@@ -137,7 +137,7 @@
         </div>
         <div id="missileContainer" style="display: none;">
             Missiles: 🚀 <span id="missileCountDisplay">0</span>
-            <span style="color: #ffff00; margin-left: 10px;">Press SPACE to shoot</span>
+            <span id="missilePrompt" style="color: #ffff00; margin-left: 10px; display: none;">Press SPACE to shoot</span>
         </div>
     </div>
 
@@ -188,6 +188,7 @@
         let missileCount = 0;
         let missiles = [];
         let missileParticles = [];
+        let hasShownMissilePrompt = false;
 
         // Controls
         document.addEventListener('keydown', (e) => {
@@ -491,12 +492,20 @@
         function updateMissileDisplay() {
             const missileContainer = document.getElementById('missileContainer');
             const missileCountDisplay = document.getElementById('missileCountDisplay');
+            const missilePrompt = document.getElementById('missilePrompt');
 
             if (missileCount > 0) {
                 missileContainer.style.display = 'block';
                 missileCountDisplay.textContent = missileCount;
+
+                // Show prompt only the first time player gets missiles
+                if (!hasShownMissilePrompt) {
+                    missilePrompt.style.display = 'inline';
+                    hasShownMissilePrompt = true;
+                }
             } else {
                 missileContainer.style.display = 'none';
+                missilePrompt.style.display = 'none';
             }
         }
 
@@ -1538,6 +1547,7 @@
             missiles = [];
             missileParticles = [];
             missileCount = 0;
+            hasShownMissilePrompt = false;
             boss = null;
             bossSpawned = false;
             score = 0;
