@@ -495,11 +495,11 @@
                     y: player.y,
                     width: 8,
                     height: 16,
-                    speed: 6,
-                    velocityX: (Math.random() - 0.5) * 2, // Random initial direction
-                    velocityY: -4,
+                    speed: 10,
+                    velocityX: (Math.random() - 0.5) * 3, // Random initial direction
+                    velocityY: -6,
                     target: target,
-                    trackingStrength: 0.15 + Math.random() * 0.1, // Random tracking strength
+                    trackingStrength: 0.3 + Math.random() * 0.2, // Stronger tracking
                     color: '#ff0000',
                     trail: []
                 });
@@ -572,6 +572,9 @@
                 for (let i = enemies.length - 1; i >= 0; i--) {
                     if (checkCollision(missile, enemies[i])) {
                         const enemy = enemies[i];
+                        const explosionX = enemy.x + enemy.width / 2;
+                        const explosionY = enemy.y + enemy.height / 2;
+
                         // Missile destroys enemy instantly
                         enemies.splice(i, 1);
 
@@ -585,15 +588,25 @@
                         }
                         document.getElementById('score').textContent = score;
 
-                        // Create explosion effect
-                        for (let j = 0; j < 15; j++) {
+                        // Create visual explosion (like bomber plane explosions)
+                        explosions.push({
+                            x: explosionX,
+                            y: explosionY,
+                            radius: 0,
+                            maxRadius: 60,
+                            opacity: 1,
+                            startTime: Date.now()
+                        });
+
+                        // Create explosion particle effects
+                        for (let j = 0; j < 25; j++) {
                             missileParticles.push({
-                                x: missile.x,
-                                y: missile.y,
-                                vx: (Math.random() - 0.5) * 6,
-                                vy: (Math.random() - 0.5) * 6,
-                                life: 30,
-                                maxLife: 30,
+                                x: explosionX,
+                                y: explosionY,
+                                vx: (Math.random() - 0.5) * 8,
+                                vy: (Math.random() - 0.5) * 8,
+                                life: 40,
+                                maxLife: 40,
                                 color: '#ff' + Math.floor(Math.random() * 155 + 100).toString(16) + '00'
                             });
                         }
@@ -604,6 +617,9 @@
 
                 // Check collision with boss
                 if (boss && checkCollision(missile, boss)) {
+                    const explosionX = missile.x;
+                    const explosionY = missile.y;
+
                     boss.health -= 10; // Missile does 10 damage to boss
 
                     if (boss.health <= 0) {
@@ -612,15 +628,25 @@
                         boss = null;
                     }
 
-                    // Create explosion effect
-                    for (let j = 0; j < 15; j++) {
+                    // Create visual explosion
+                    explosions.push({
+                        x: explosionX,
+                        y: explosionY,
+                        radius: 0,
+                        maxRadius: 50,
+                        opacity: 1,
+                        startTime: Date.now()
+                    });
+
+                    // Create explosion particle effects
+                    for (let j = 0; j < 20; j++) {
                         missileParticles.push({
-                            x: missile.x,
-                            y: missile.y,
-                            vx: (Math.random() - 0.5) * 6,
-                            vy: (Math.random() - 0.5) * 6,
-                            life: 30,
-                            maxLife: 30,
+                            x: explosionX,
+                            y: explosionY,
+                            vx: (Math.random() - 0.5) * 7,
+                            vy: (Math.random() - 0.5) * 7,
+                            life: 35,
+                            maxLife: 35,
                             color: '#ff' + Math.floor(Math.random() * 155 + 100).toString(16) + '00'
                         });
                     }
