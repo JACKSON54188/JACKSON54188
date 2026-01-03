@@ -137,6 +137,7 @@
         </div>
         <div id="missileContainer" style="display: none;">
             Missiles: 🚀 <span id="missileCountDisplay">0</span>
+            <span style="color: #ffff00; margin-left: 10px;">Press SPACE to shoot</span>
         </div>
     </div>
 
@@ -669,6 +670,10 @@
                         score += 5000;
                         document.getElementById('score').textContent = score;
                         boss = null;
+                        // Game over when boss is defeated
+                        gameRunning = false;
+                        document.getElementById('finalScore').textContent = score;
+                        document.getElementById('gameOver').style.display = 'flex';
                     }
 
                     // Create visual explosion
@@ -943,10 +948,13 @@
                     boss.health -= 50; // Bombs deal 50 damage to boss
 
                     if (boss.health <= 0) {
-                        // Boss defeated
                         score += 5000;
                         document.getElementById('score').textContent = score;
                         boss = null;
+                        // Game over when boss is defeated
+                        gameRunning = false;
+                        document.getElementById('finalScore').textContent = score;
+                        document.getElementById('gameOver').style.display = 'flex';
                     }
                 }
             }
@@ -1746,11 +1754,13 @@
                     boss.health -= 1;
 
                     if (boss.health <= 0) {
-                        // Boss defeated - game continues
                         score += 5000;
                         document.getElementById('score').textContent = score;
                         boss = null;
-                        // Don't set bossSpawned to false so boss won't respawn
+                        // Game over when boss is defeated
+                        gameRunning = false;
+                        document.getElementById('finalScore').textContent = score;
+                        document.getElementById('gameOver').style.display = 'flex';
                     }
                     return false;
                 }
@@ -1923,13 +1933,22 @@
         setInterval(() => {
             if (gameRunning) {
                 // Calculate spawn chance based on score
-                let baseChance = 0.6; // 60% base chance (increased from 30%)
+                let baseChance = 0.6; // 60% base chance
                 const scoreBonus = Math.min(score / 3000, 0.4); // Up to 40% bonus at 3000+ score
 
-                // Increase probability if score > 3000 and player has < 3 buffs
+                // Sharply increase probability when player has < 4 buffs
                 const activeBuffCount = Object.values(buffCollectionCount).filter(count => count > 0).length;
-                if (score > 3000 && activeBuffCount < 3) {
-                    baseChance = 0.8; // Increase base chance to 80%
+                if (activeBuffCount < 4) {
+                    // Sharp increase based on how few buffs the player has
+                    if (activeBuffCount === 0) {
+                        baseChance = 0.95; // 95% chance with no buffs
+                    } else if (activeBuffCount === 1) {
+                        baseChance = 0.90; // 90% chance with 1 buff
+                    } else if (activeBuffCount === 2) {
+                        baseChance = 0.85; // 85% chance with 2 buffs
+                    } else if (activeBuffCount === 3) {
+                        baseChance = 0.75; // 75% chance with 3 buffs
+                    }
                 }
 
                 const spawnChance = Math.min(baseChance + scoreBonus, 1.0); // Cap at 100%
