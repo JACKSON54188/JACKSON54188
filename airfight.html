@@ -172,9 +172,9 @@
         let scoreInterval = null;
         let fireRate = 200;
         let tripleShot = false;
-        let bulletSize = 1;
+        let forkShot = false;
         let collectedBuffTypes = new Set();
-        let buffCollectionCount = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+        let buffCollectionCount = { A: 0, B: 0, C: 0, D: 0 };
         let cheatCode = '';
         let cheatTimeout = null;
         let bomberPlanes = [];
@@ -210,10 +210,27 @@
         });
 
         function shootBullet() {
-            const bulletWidth = 5 * bulletSize;
-            const bulletHeight = 15 * bulletSize;
+            const bulletWidth = 5;
+            const bulletHeight = 15;
 
-            if (tripleShot) {
+            if (forkShot) {
+                // Fork pattern: 4 bullets in a spread
+                const angles = [-10, -3.5, 3.5, 10]; // degrees
+                angles.forEach(angle => {
+                    const radians = angle * Math.PI / 180;
+                    bullets.push({
+                        x: player.x + player.width / 2 - bulletWidth / 2,
+                        y: player.y,
+                        width: bulletWidth,
+                        height: bulletHeight,
+                        speed: 7,
+                        velocityX: Math.sin(radians) * 7,
+                        velocityY: -Math.cos(radians) * 7,
+                        color: '#ffff00',
+                        angled: true
+                    });
+                });
+            } else if (tripleShot) {
                 // Center bullet
                 bullets.push({
                     x: player.x + player.width / 2 - bulletWidth / 2,
@@ -269,8 +286,8 @@
         }
 
         function createPowerup() {
-            const types = ['A', 'B', 'C', 'D', 'E'];
-            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffaa00', '#ffff00'];
+            const types = ['A', 'B', 'C', 'D'];
+            const colors = ['#00ffff', '#ff00ff', '#00ff00', '#ffaa00'];
 
             // Calculate weighted probabilities based on collected buffs
             let weights = types.map(type => {
@@ -342,8 +359,13 @@
                     startAutoFire();
                 }
             } else if (type === 'B') {
-                // Triple shot - just set to true (already stackable in effect)
-                tripleShot = true;
+                // Triple shot on first collect, fork shot on second collect
+                if (buffCollectionCount.B === 1) {
+                    tripleShot = true;
+                } else if (buffCollectionCount.B >= 2) {
+                    forkShot = true;
+                    tripleShot = false; // Replace triple shot with fork shot
+                }
             } else if (type === 'C') {
                 // Restore health and add shield - stackable shield
                 health = Math.min(100, health + 50);
@@ -368,11 +390,6 @@
                     spawnBomberPlane('left');
                     spawnBomberPlane('right');
                 }
-            } else if (type === 'E') {
-                // Increase bullet size - stackable, max 3 times
-                if (buffCollectionCount.E <= 3) {
-                    bulletSize = Math.min(3, bulletSize + 0.5);
-                }
             }
         }
 
@@ -381,8 +398,8 @@
 
             // Activate all buffs to max
             fireRate = 50; // Max fire rate
-            tripleShot = true;
-            bulletSize = 3; // Max bullet size
+            forkShot = true;
+            tripleShot = false;
             health = 100;
             shield = 200; // Max shield
 
@@ -396,10 +413,9 @@
             collectedBuffTypes.add('B');
             collectedBuffTypes.add('C');
             collectedBuffTypes.add('D');
-            collectedBuffTypes.add('E');
 
             // Set max collection counts
-            buffCollectionCount = { A: 3, B: 1, C: 1, D: 1, E: 3 };
+            buffCollectionCount = { A: 3, B: 2, C: 1, D: 1 };
 
             // Update displays
             document.getElementById('health').textContent = health;
@@ -561,11 +577,28 @@
         function wingplanesShoot() {
             wingplanes.forEach(wingplane => {
                 if (!wingplane.spawning) {
-                    const bulletWidth = 5 * bulletSize;
-                    const bulletHeight = 15 * bulletSize;
+                    const bulletWidth = 5;
+                    const bulletHeight = 15;
 
-                    // Wingplanes benefit from triple shot buff and bullet size
-                    if (tripleShot) {
+                    // Wingplanes benefit from fork shot and triple shot buff
+                    if (forkShot) {
+                        // Fork pattern: 4 bullets in a spread
+                        const angles = [-10, -3.5, 3.5, 10]; // degrees
+                        angles.forEach(angle => {
+                            const radians = angle * Math.PI / 180;
+                            bullets.push({
+                                x: wingplane.x + wingplane.width / 2 - bulletWidth / 2,
+                                y: wingplane.y,
+                                width: bulletWidth,
+                                height: bulletHeight,
+                                speed: 7,
+                                velocityX: Math.sin(radians) * 7,
+                                velocityY: -Math.cos(radians) * 7,
+                                color: '#ffaa00',
+                                angled: true
+                            });
+                        });
+                    } else if (tripleShot) {
                         // Center bullet
                         bullets.push({
                             x: wingplane.x + wingplane.width / 2 - bulletWidth / 2,
@@ -640,8 +673,17 @@
 
         function updateBullets() {
             bullets = bullets.filter(bullet => {
-                bullet.y -= bullet.speed;
-                return bullet.y > 0;
+                if (bullet.angled) {
+                    // Angled bullets use velocity
+                    bullet.x += bullet.velocityX;
+                    bullet.y += bullet.velocityY;
+                    // Keep bullets that are still on screen
+                    return bullet.y > 0 && bullet.x > 0 && bullet.x < canvas.width;
+                } else {
+                    // Normal bullets move straight up
+                    bullet.y -= bullet.speed;
+                    return bullet.y > 0;
+                }
             });
         }
 
@@ -793,7 +835,11 @@
         function drawBullets() {
             bullets.forEach(bullet => {
                 ctx.fillStyle = bullet.color;
-                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                // Draw player bullets as circles
+                const radius = Math.max(bullet.width, bullet.height) / 2;
+                ctx.beginPath();
+                ctx.arc(bullet.x + bullet.width / 2, bullet.y + bullet.height / 2, radius, 0, Math.PI * 2);
+                ctx.fill();
             });
 
             enemyBullets.forEach(bullet => {
@@ -838,8 +884,6 @@
                     icon = '❤️'; // Heart for health/shield
                 } else if (powerup.type === 'D') {
                     icon = '✈️'; // Plane for wingplanes
-                } else if (powerup.type === 'E') {
-                    icon = '💥'; // Explosion for bigger bullets
                 }
 
                 ctx.fillText(icon, powerup.x + powerup.width / 2, powerup.y + powerup.height / 2);
@@ -931,9 +975,9 @@
             shield = 0;
             fireRate = 200;
             tripleShot = false;
-            bulletSize = 1;
+            forkShot = false;
             collectedBuffTypes.clear();
-            buffCollectionCount = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+            buffCollectionCount = { A: 0, B: 0, C: 0, D: 0 };
             gameRunning = true;
             document.getElementById('score').textContent = score;
             document.getElementById('health').textContent = health;
@@ -981,12 +1025,17 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Spawn enemies periodically - spawn 3 enemies every 800ms
+        // Spawn enemies periodically - increases with score
         setInterval(() => {
             if (gameRunning) {
-                createEnemy();
-                createEnemy();
-                createEnemy();
+                // Start with 1 enemy, gradually increase to 4 based on score
+                const baseEnemies = 1;
+                const bonusEnemies = Math.min(Math.floor(score / 1000), 3);
+                const totalEnemies = baseEnemies + bonusEnemies;
+
+                for (let i = 0; i < totalEnemies; i++) {
+                    createEnemy();
+                }
             }
         }, 800);
 
