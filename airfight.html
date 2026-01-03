@@ -181,15 +181,19 @@
         let explosions = [];
         let boss = null;
         let bossSpawned = false;
-        let laserActive = false;
-        let laserDuration = 0;
-        let lasers = [];
+        let missileCount = 0;
+        let missiles = [];
+        let missileParticles = [];
 
         // Controls
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (e.key === ' ' && gameRunning) {
-                shootBullet();
+                if (missileCount > 0) {
+                    shootMissiles();
+                } else {
+                    shootBullet();
+                }
             }
 
             // Score cheat key
@@ -466,105 +470,231 @@
                     spawnBomberPlane('right');
                 }
             } else if (type === 'F') {
-                // Laser beam - powerful piercing attack
-                activateLaser();
+                // Missile system - 5 shots, each shoots 3 homing missiles
+                missileCount = 5;
             }
         }
 
-        function activateLaser() {
-            laserActive = true;
-            laserDuration = 3000; // 3 seconds duration
+        function shootMissiles() {
+            if (missileCount <= 0) return;
 
-            setTimeout(() => {
-                laserActive = false;
-            }, laserDuration);
+            // Shoot 3 missiles
+            for (let i = 0; i < 3; i++) {
+                // Find a random target (enemy or boss)
+                let target = null;
+                const allTargets = [...enemies];
+                if (boss) allTargets.push(boss);
+
+                if (allTargets.length > 0) {
+                    // Random target selection for each missile
+                    target = allTargets[Math.floor(Math.random() * allTargets.length)];
+                }
+
+                missiles.push({
+                    x: player.x + player.width / 2,
+                    y: player.y,
+                    width: 8,
+                    height: 16,
+                    speed: 6,
+                    velocityX: (Math.random() - 0.5) * 2, // Random initial direction
+                    velocityY: -4,
+                    target: target,
+                    trackingStrength: 0.15 + Math.random() * 0.1, // Random tracking strength
+                    color: '#ff0000',
+                    trail: []
+                });
+            }
+
+            missileCount--;
         }
 
-        function updateLasers() {
-            if (!laserActive) return;
+        function updateMissiles() {
+            missiles = missiles.filter(missile => {
+                // Update target if it's destroyed or track new random target
+                if (missile.target && (missile.target.health === undefined || missile.target.health <= 0 || missile.target === null)) {
+                    const allTargets = [...enemies];
+                    if (boss) allTargets.push(boss);
+                    if (allTargets.length > 0) {
+                        missile.target = allTargets[Math.floor(Math.random() * allTargets.length)];
+                    } else {
+                        missile.target = null;
+                    }
+                }
 
-            // Create laser from player position
-            lasers = [{
-                x: player.x + player.width / 2 - 15,
-                y: 0,
-                width: 30,
-                height: player.y,
-                active: true
-            }];
+                // Homing behavior with random tracking
+                if (missile.target) {
+                    const targetX = missile.target.x + missile.target.width / 2;
+                    const targetY = missile.target.y + missile.target.height / 2;
 
-            // Wingplanes also shoot lasers
-            wingplanes.forEach(wingplane => {
-                if (!wingplane.spawning) {
-                    lasers.push({
-                        x: wingplane.x + wingplane.width / 2 - 12,
-                        y: 0,
-                        width: 24,
-                        height: wingplane.y,
-                        active: true
+                    const dx = targetX - missile.x;
+                    const dy = targetY - missile.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance > 0) {
+                        // Add some randomness to tracking
+                        const randomOffset = (Math.random() - 0.5) * 0.3;
+                        missile.velocityX += (dx / distance) * missile.trackingStrength + randomOffset;
+                        missile.velocityY += (dy / distance) * missile.trackingStrength + randomOffset;
+                    }
+                }
+
+                // Limit speed
+                const currentSpeed = Math.sqrt(missile.velocityX ** 2 + missile.velocityY ** 2);
+                if (currentSpeed > missile.speed) {
+                    missile.velocityX = (missile.velocityX / currentSpeed) * missile.speed;
+                    missile.velocityY = (missile.velocityY / currentSpeed) * missile.speed;
+                }
+
+                // Update position
+                missile.x += missile.velocityX;
+                missile.y += missile.velocityY;
+
+                // Add trail
+                missile.trail.push({ x: missile.x, y: missile.y, opacity: 1 });
+                if (missile.trail.length > 10) {
+                    missile.trail.shift();
+                }
+
+                // Create particles
+                if (Math.random() < 0.3) {
+                    missileParticles.push({
+                        x: missile.x,
+                        y: missile.y,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        life: 20,
+                        maxLife: 20,
+                        color: '#ff' + Math.floor(Math.random() * 100 + 155).toString(16) + '00'
                     });
                 }
-            });
 
-            // Damage all enemies hit by laser
-            enemies = enemies.filter(enemy => {
-                for (let laser of lasers) {
-                    if (checkCollision(enemy, laser)) {
-                        enemy.health -= 2; // Laser does 2 damage per frame
-                        if (enemy.health <= 0) {
-                            if (enemy.type === 'tank') {
-                                score += 75;
-                            } else if (enemy.type === 'fast') {
-                                score += 50;
-                            } else {
-                                score += 25;
-                            }
-                            document.getElementById('score').textContent = score;
-                            return false;
+                // Check collision with enemies
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    if (checkCollision(missile, enemies[i])) {
+                        const enemy = enemies[i];
+                        // Missile destroys enemy instantly
+                        enemies.splice(i, 1);
+
+                        // Award points
+                        if (enemy.type === 'tank') {
+                            score += 75;
+                        } else if (enemy.type === 'fast') {
+                            score += 50;
+                        } else {
+                            score += 25;
                         }
-                        break;
+                        document.getElementById('score').textContent = score;
+
+                        // Create explosion effect
+                        for (let j = 0; j < 15; j++) {
+                            missileParticles.push({
+                                x: missile.x,
+                                y: missile.y,
+                                vx: (Math.random() - 0.5) * 6,
+                                vy: (Math.random() - 0.5) * 6,
+                                life: 30,
+                                maxLife: 30,
+                                color: '#ff' + Math.floor(Math.random() * 155 + 100).toString(16) + '00'
+                            });
+                        }
+
+                        return false; // Remove missile
                     }
                 }
-                return true;
-            });
 
-            // Damage boss with laser
-            if (boss) {
-                for (let laser of lasers) {
-                    if (checkCollision(boss, laser)) {
-                        boss.health -= 3; // Laser does 3 damage per frame to boss
-                        if (boss.health <= 0) {
-                            score += 5000;
-                            document.getElementById('score').textContent = score;
-                            boss = null;
-                        }
-                        break;
+                // Check collision with boss
+                if (boss && checkCollision(missile, boss)) {
+                    boss.health -= 10; // Missile does 10 damage to boss
+
+                    if (boss.health <= 0) {
+                        score += 5000;
+                        document.getElementById('score').textContent = score;
+                        boss = null;
                     }
+
+                    // Create explosion effect
+                    for (let j = 0; j < 15; j++) {
+                        missileParticles.push({
+                            x: missile.x,
+                            y: missile.y,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: (Math.random() - 0.5) * 6,
+                            life: 30,
+                            maxLife: 30,
+                            color: '#ff' + Math.floor(Math.random() * 155 + 100).toString(16) + '00'
+                        });
+                    }
+
+                    return false; // Remove missile
                 }
-            }
+
+                // Remove if off screen
+                return missile.y > -20 && missile.y < canvas.height + 20 &&
+                       missile.x > -20 && missile.x < canvas.width + 20;
+            });
         }
 
-        function drawLasers() {
-            if (!laserActive || lasers.length === 0) return;
+        function updateMissileParticles() {
+            missileParticles = missileParticles.filter(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life--;
+                particle.vy += 0.1; // Gravity
+                return particle.life > 0;
+            });
+        }
 
-            lasers.forEach(laser => {
-                // Draw laser beam with pulsing effect
-                const pulse = Math.sin(Date.now() / 50) * 0.3 + 0.7;
+        function drawMissiles() {
+            missiles.forEach(missile => {
+                // Draw trail
+                missile.trail.forEach((point, index) => {
+                    const opacity = (index / missile.trail.length) * 0.5;
+                    ctx.fillStyle = `rgba(255, 100, 0, ${opacity})`;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
 
-                // Outer glow
-                ctx.fillStyle = `rgba(255, 255, 0, ${0.3 * pulse})`;
-                ctx.fillRect(laser.x - 10, laser.y, laser.width + 20, laser.height);
+                // Draw missile body
+                ctx.save();
+                ctx.translate(missile.x, missile.y);
+                const angle = Math.atan2(missile.velocityY, missile.velocityX) + Math.PI / 2;
+                ctx.rotate(angle);
 
-                // Main beam
-                const gradient = ctx.createLinearGradient(laser.x, 0, laser.x + laser.width, 0);
-                gradient.addColorStop(0, `rgba(255, 255, 100, ${0.6 * pulse})`);
-                gradient.addColorStop(0.5, `rgba(255, 255, 255, ${pulse})`);
-                gradient.addColorStop(1, `rgba(255, 255, 100, ${0.6 * pulse})`);
-                ctx.fillStyle = gradient;
-                ctx.fillRect(laser.x, laser.y, laser.width, laser.height);
+                // Missile body
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(-4, -8, 8, 16);
 
-                // Core beam
-                ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
-                ctx.fillRect(laser.x + laser.width / 3, laser.y, laser.width / 3, laser.height);
+                // Missile tip
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.moveTo(0, -8);
+                ctx.lineTo(-4, -4);
+                ctx.lineTo(4, -4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Missile fins
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-6, 4, 3, 4);
+                ctx.fillRect(3, 4, 3, 4);
+
+                ctx.restore();
+
+                // Glow effect
+                ctx.fillStyle = 'rgba(255, 100, 0, 0.3)';
+                ctx.beginPath();
+                ctx.arc(missile.x, missile.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw particles
+            missileParticles.forEach(particle => {
+                const opacity = particle.life / particle.maxLife;
+                ctx.fillStyle = particle.color.slice(0, 7) + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, 2 + (1 - opacity) * 3, 0, Math.PI * 2);
+                ctx.fill();
             });
         }
 
@@ -577,6 +707,7 @@
             tripleShot = false;
             health = 100;
             shield = 200; // Max shield
+            missileCount = 5; // Add missiles
 
             // Spawn wingplanes if not already present
             if (wingplanes.length === 0) {
@@ -588,9 +719,10 @@
             collectedBuffTypes.add('B');
             collectedBuffTypes.add('C');
             collectedBuffTypes.add('D');
+            collectedBuffTypes.add('F');
 
             // Set max collection counts
-            buffCollectionCount = { A: 3, B: 2, C: 1, D: 1 };
+            buffCollectionCount = { A: 3, B: 2, C: 1, D: 1, F: 1 };
 
             // Update displays
             document.getElementById('health').textContent = health;
@@ -1194,6 +1326,8 @@
                     icon = '❤️'; // Heart for health/shield
                 } else if (powerup.type === 'D') {
                     icon = '✈️'; // Plane for wingplanes
+                } else if (powerup.type === 'F') {
+                    icon = '🚀'; // Rocket for missiles
                 }
 
                 ctx.fillText(icon, powerup.x + powerup.width / 2, powerup.y + powerup.height / 2);
@@ -1305,6 +1439,9 @@
             wingplanes = [];
             bomberPlanes = [];
             explosions = [];
+            missiles = [];
+            missileParticles = [];
+            missileCount = 0;
             boss = null;
             bossSpawned = false;
             score = 0;
@@ -1314,7 +1451,7 @@
             tripleShot = false;
             forkShot = false;
             collectedBuffTypes.clear();
-            buffCollectionCount = { A: 0, B: 0, C: 0, D: 0 };
+            buffCollectionCount = { A: 0, B: 0, C: 0, D: 0, F: 0 };
             gameRunning = true;
             document.getElementById('score').textContent = score;
             document.getElementById('health').textContent = health;
@@ -1652,6 +1789,8 @@
             updateWingplanes();
             updateBomberPlanes();
             updateExplosions();
+            updateMissiles();
+            updateMissileParticles();
             checkBulletCollisions();
             checkBossBulletCollisions();
 
@@ -1663,6 +1802,7 @@
             drawBullets();
             drawEnemies();
             drawPowerups();
+            drawMissiles();
 
             requestAnimationFrame(gameLoop);
         }
