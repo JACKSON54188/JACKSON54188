@@ -502,8 +502,9 @@
         function shootMissiles() {
             if (missileCount <= 0) return;
 
-            // Shoot 3 missiles
-            for (let i = 0; i < 3; i++) {
+            // Shoot 4 missiles with horizontal spread
+            const spreadAngles = [-30, -10, 10, 30]; // Horizontal injection angles
+            for (let i = 0; i < 4; i++) {
                 // Find a random target (enemy or boss)
                 let target = null;
                 const allTargets = [...enemies];
@@ -514,20 +515,24 @@
                     target = allTargets[Math.floor(Math.random() * allTargets.length)];
                 }
 
+                const angleRad = spreadAngles[i] * Math.PI / 180;
+                const currentTime = Date.now();
+
                 missiles.push({
                     x: player.x + player.width / 2,
                     y: player.y,
                     width: 12,
                     height: 24,
-                    speed: 4,
-                    maxSpeed: 8,
-                    acceleration: 0.08,
-                    velocityX: 0, // Start going straight
-                    velocityY: -1.5, // Start very slow
+                    speed: 2,
+                    maxSpeed: 4,
+                    acceleration: 0.03,
+                    velocityX: Math.sin(angleRad) * 2, // Horizontal spread
+                    velocityY: -Math.cos(angleRad) * 1, // Start very slow
                     target: target,
-                    trackingStrength: 0.25, // Lower tracking strength
+                    trackingStrength: 0.15, // Lower tracking strength
                     color: '#ff0000',
-                    trail: []
+                    trail: [],
+                    spawnTime: currentTime
                 });
             }
 
@@ -536,7 +541,13 @@
         }
 
         function updateMissiles() {
+            const currentTime = Date.now();
             missiles = missiles.filter(missile => {
+                // Remove missile after 2 seconds
+                if (currentTime - missile.spawnTime >= 2000) {
+                    return false;
+                }
+
                 // Update target if it's destroyed or track new random target
                 if (missile.target && (missile.target.health === undefined || missile.target.health <= 0 || missile.target === null)) {
                     const allTargets = [...enemies];
