@@ -135,6 +135,9 @@
                 <div class="shield-fill" id="shieldFill" style="width: 0%"></div>
             </div>
         </div>
+        <div id="missileContainer" style="display: none;">
+            Missiles: 🚀 <span id="missileCountDisplay">0</span>
+        </div>
     </div>
 
     <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -472,6 +475,19 @@
             } else if (type === 'F') {
                 // Missile system - 5 shots, each shoots 3 homing missiles
                 missileCount = 5;
+                updateMissileDisplay();
+            }
+        }
+
+        function updateMissileDisplay() {
+            const missileContainer = document.getElementById('missileContainer');
+            const missileCountDisplay = document.getElementById('missileCountDisplay');
+
+            if (missileCount > 0) {
+                missileContainer.style.display = 'block';
+                missileCountDisplay.textContent = missileCount;
+            } else {
+                missileContainer.style.display = 'none';
             }
         }
 
@@ -493,19 +509,20 @@
                 missiles.push({
                     x: player.x + player.width / 2,
                     y: player.y,
-                    width: 8,
-                    height: 16,
+                    width: 12,
+                    height: 24,
                     speed: 10,
-                    velocityX: (Math.random() - 0.5) * 3, // Random initial direction
+                    velocityX: 0, // Start going straight
                     velocityY: -6,
                     target: target,
-                    trackingStrength: 0.3 + Math.random() * 0.2, // Stronger tracking
+                    trackingStrength: 0.4, // Fixed tracking strength
                     color: '#ff0000',
                     trail: []
                 });
             }
 
             missileCount--;
+            updateMissileDisplay();
         }
 
         function updateMissiles() {
@@ -531,10 +548,9 @@
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
                     if (distance > 0) {
-                        // Add some randomness to tracking
-                        const randomOffset = (Math.random() - 0.5) * 0.3;
-                        missile.velocityX += (dx / distance) * missile.trackingStrength + randomOffset;
-                        missile.velocityY += (dy / distance) * missile.trackingStrength + randomOffset;
+                        // Direct tracking without randomness
+                        missile.velocityX += (dx / distance) * missile.trackingStrength;
+                        missile.velocityY += (dy / distance) * missile.trackingStrength;
                     }
                 }
 
@@ -687,30 +703,30 @@
                 const angle = Math.atan2(missile.velocityY, missile.velocityX) + Math.PI / 2;
                 ctx.rotate(angle);
 
-                // Missile body
+                // Missile body (bigger)
                 ctx.fillStyle = '#ff0000';
-                ctx.fillRect(-4, -8, 8, 16);
+                ctx.fillRect(-6, -12, 12, 24);
 
                 // Missile tip
                 ctx.fillStyle = '#ffff00';
                 ctx.beginPath();
-                ctx.moveTo(0, -8);
-                ctx.lineTo(-4, -4);
-                ctx.lineTo(4, -4);
+                ctx.moveTo(0, -12);
+                ctx.lineTo(-6, -6);
+                ctx.lineTo(6, -6);
                 ctx.closePath();
                 ctx.fill();
 
                 // Missile fins
                 ctx.fillStyle = '#ffffff';
-                ctx.fillRect(-6, 4, 3, 4);
-                ctx.fillRect(3, 4, 3, 4);
+                ctx.fillRect(-9, 6, 4, 6);
+                ctx.fillRect(5, 6, 4, 6);
 
                 ctx.restore();
 
-                // Glow effect
+                // Glow effect (bigger)
                 ctx.fillStyle = 'rgba(255, 100, 0, 0.3)';
                 ctx.beginPath();
-                ctx.arc(missile.x, missile.y, 10, 0, Math.PI * 2);
+                ctx.arc(missile.x, missile.y, 15, 0, Math.PI * 2);
                 ctx.fill();
             });
 
@@ -753,6 +769,7 @@
             // Update displays
             document.getElementById('health').textContent = health;
             updateShieldDisplay();
+            updateMissileDisplay();
             startAutoFire();
         }
 
@@ -1482,6 +1499,7 @@
             document.getElementById('score').textContent = score;
             document.getElementById('health').textContent = health;
             updateShieldDisplay();
+            updateMissileDisplay();
             document.getElementById('gameOver').style.display = 'none';
             startAutoFire();
             startAutoScore();
