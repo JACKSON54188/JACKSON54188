@@ -501,8 +501,8 @@
                     spawnBomberPlane('right');
                 }
             } else if (type === 'F') {
-                // Atomic bomb - can stack up to 3
-                atomicBombCount = Math.min(atomicBombCount + 1, 3);
+                // Atomic bomb - can stack up to 2
+                atomicBombCount = Math.min(atomicBombCount + 1, 2);
                 updateAtomicBombDisplay();
             }
         }
@@ -883,7 +883,7 @@
             tripleShot = false;
             health = 100;
             shield = 200; // Max shield
-            atomicBombCount = 3; // Add atomic bombs
+            atomicBombCount = 2; // Add atomic bombs
 
             // Spawn wingplanes if not already present
             if (wingplanes.length === 0) {
