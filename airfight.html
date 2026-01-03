@@ -1946,18 +1946,18 @@
                 let baseChance = 0.6; // 60% base chance
                 const scoreBonus = Math.min(score / 3000, 0.4); // Up to 40% bonus at 3000+ score
 
-                // Sharply increase probability when player has < 4 buffs
-                const activeBuffCount = Object.values(buffCollectionCount).filter(count => count > 0).length;
-                if (activeBuffCount < 4) {
-                    // Sharp increase based on how few buffs the player has
-                    if (activeBuffCount === 0) {
-                        baseChance = 0.95; // 95% chance with no buffs
-                    } else if (activeBuffCount === 1) {
-                        baseChance = 0.90; // 90% chance with 1 buff
-                    } else if (activeBuffCount === 2) {
-                        baseChance = 0.85; // 85% chance with 2 buffs
-                    } else if (activeBuffCount === 3) {
-                        baseChance = 0.75; // 75% chance with 3 buffs
+                // Sharply increase probability when player has < 4 buff types
+                const activeBuffTypes = collectedBuffTypes.size;
+                if (activeBuffTypes < 4) {
+                    // Sharp increase based on how few buff types the player has
+                    if (activeBuffTypes === 0) {
+                        baseChance = 0.95; // 95% chance with no buff types
+                    } else if (activeBuffTypes === 1) {
+                        baseChance = 0.90; // 90% chance with 1 buff type
+                    } else if (activeBuffTypes === 2) {
+                        baseChance = 0.85; // 85% chance with 2 buff types
+                    } else if (activeBuffTypes === 3) {
+                        baseChance = 0.75; // 75% chance with 3 buff types
                     }
                 }
 
