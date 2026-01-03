@@ -481,7 +481,8 @@
                 }
             } else if (type === 'F') {
                 // Missile system - 5 shots, each shoots 3 homing missiles
-                missileCount = 5;
+                // Can stack up to 10 total
+                missileCount = Math.min(missileCount + 5, 10);
                 updateMissileDisplay();
             }
         }
@@ -518,13 +519,13 @@
                     y: player.y,
                     width: 12,
                     height: 24,
-                    speed: 12,
-                    maxSpeed: 15,
-                    acceleration: 0.15,
+                    speed: 4,
+                    maxSpeed: 8,
+                    acceleration: 0.08,
                     velocityX: 0, // Start going straight
-                    velocityY: -3, // Start slower
+                    velocityY: -1.5, // Start very slow
                     target: target,
-                    trackingStrength: 0.35, // Fixed tracking strength
+                    trackingStrength: 0.25, // Lower tracking strength
                     color: '#ff0000',
                     trail: []
                 });
