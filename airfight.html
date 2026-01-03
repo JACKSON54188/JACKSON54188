@@ -1901,14 +1901,15 @@
             if (gameRunning) {
                 // Reduce enemy spawns when boss is active
                 if (boss) {
-                    // Only spawn 1 enemy when boss is present
-                    if (Math.random() < 0.3) { // 30% chance
+                    // Spawn 2 enemies when boss is present
+                    if (Math.random() < 0.5) { // 50% chance
+                        createEnemy();
                         createEnemy();
                     }
                 } else {
-                    // Start with 1 enemy, gradually increase to 6 based on score
-                    const baseEnemies = 1;
-                    const bonusEnemies = Math.min(Math.floor(score / 1000), 5); // Up to 5 bonus enemies
+                    // Start with 2 enemies, gradually increase to 10 based on score
+                    const baseEnemies = 2;
+                    const bonusEnemies = Math.min(Math.floor(score / 1000), 8); // Up to 8 bonus enemies
                     const totalEnemies = baseEnemies + bonusEnemies;
 
                     for (let i = 0; i < totalEnemies; i++) {
