@@ -174,8 +174,10 @@
         let tripleShot = false;
         let bulletSize = 1;
         let collectedBuffTypes = new Set();
+        let buffCollectionCount = { A: 0, B: 0, C: 0, D: 0, E: 0 };
         let cheatCode = '';
         let cheatTimeout = null;
+        let bomberPlanes = [];
 
         // Controls
         document.addEventListener('keydown', (e) => {
@@ -314,6 +316,7 @@
                 if (checkCollision(player, powerup)) {
                     activatePowerup(powerup.type);
                     collectedBuffTypes.add(powerup.type);
+                    buffCollectionCount[powerup.type]++;
                     return false;
                 }
 
@@ -322,6 +325,7 @@
                     if (!wingplanes[i].spawning && checkCollision(wingplanes[i], powerup)) {
                         activatePowerup(powerup.type);
                         collectedBuffTypes.add(powerup.type);
+                        buffCollectionCount[powerup.type]++;
                         return false;
                     }
                 }
@@ -332,9 +336,11 @@
 
         function activatePowerup(type) {
             if (type === 'A') {
-                // Increase shooting speed - stackable
-                fireRate = Math.max(50, fireRate - 30);
-                startAutoFire();
+                // Increase shooting speed - stackable, max 3 times
+                if (buffCollectionCount.A <= 3) {
+                    fireRate = Math.max(50, fireRate - 30);
+                    startAutoFire();
+                }
             } else if (type === 'B') {
                 // Triple shot - just set to true (already stackable in effect)
                 tripleShot = true;
@@ -345,13 +351,28 @@
                 document.getElementById('health').textContent = health;
                 updateShieldDisplay();
             } else if (type === 'D') {
-                // Spawn wingplanes - limit to 2
+                // Spawn wingplanes or bomber planes
                 if (wingplanes.length < 2) {
-                    spawnWingplanes();
+                    // Missing wingplanes, spawn regular ones
+                    const missingSide = determineMissingSide();
+                    if (missingSide === 'both') {
+                        spawnWingplanes();
+                    } else {
+                        // Spawn one regular wingplane on missing side
+                        spawnSingleWingplane(missingSide);
+                        // Spawn one bomber plane on opposite side
+                        spawnBomberPlane(missingSide === 'left' ? 'right' : 'left');
+                    }
+                } else {
+                    // Already have 2 wingplanes, spawn 2 bomber planes
+                    spawnBomberPlane('left');
+                    spawnBomberPlane('right');
                 }
             } else if (type === 'E') {
-                // Increase bullet size - stackable
-                bulletSize = Math.min(3, bulletSize + 0.5);
+                // Increase bullet size - stackable, max 3 times
+                if (buffCollectionCount.E <= 3) {
+                    bulletSize = Math.min(3, bulletSize + 0.5);
+                }
             }
         }
 
@@ -377,10 +398,23 @@
             collectedBuffTypes.add('D');
             collectedBuffTypes.add('E');
 
+            // Set max collection counts
+            buffCollectionCount = { A: 3, B: 1, C: 1, D: 1, E: 3 };
+
             // Update displays
             document.getElementById('health').textContent = health;
             updateShieldDisplay();
             startAutoFire();
+        }
+
+        function determineMissingSide() {
+            const hasLeft = wingplanes.some(w => w.side === 'left');
+            const hasRight = wingplanes.some(w => w.side === 'right');
+
+            if (!hasLeft && !hasRight) return 'both';
+            if (!hasLeft) return 'left';
+            if (!hasRight) return 'right';
+            return 'none';
         }
 
         function spawnWingplanes() {
@@ -407,6 +441,63 @@
                 side: 'right',
                 color: '#ffaa00',
                 spawning: true
+            });
+        }
+
+        function spawnSingleWingplane(side) {
+            const xPos = side === 'left' ? player.x - 60 : player.x + player.width + 25;
+            wingplanes.push({
+                x: xPos,
+                y: canvas.height + 50,
+                targetY: player.y + 10,
+                width: 35,
+                height: 35,
+                health: 1,
+                side: side,
+                color: '#ffaa00',
+                spawning: true
+            });
+        }
+
+        function spawnBomberPlane(side) {
+            const xPos = side === 'left' ? 100 : canvas.width - 100;
+            bomberPlanes.push({
+                x: xPos,
+                y: canvas.height + 50,
+                width: 40,
+                height: 40,
+                speed: 3,
+                side: side,
+                color: '#ff00aa',
+                lastBomb: Date.now()
+            });
+        }
+
+        function updateBomberPlanes() {
+            const currentTime = Date.now();
+            bomberPlanes = bomberPlanes.filter(bomber => {
+                // Move up through the screen
+                bomber.y -= bomber.speed;
+
+                // Drop bombs at 2 per second (500ms interval)
+                if (currentTime - bomber.lastBomb >= 500) {
+                    dropBomb(bomber);
+                    bomber.lastBomb = currentTime;
+                }
+
+                // Remove when off screen
+                return bomber.y > -bomber.height;
+            });
+        }
+
+        function dropBomb(bomber) {
+            bullets.push({
+                x: bomber.x + bomber.width / 2 - 4,
+                y: bomber.y + bomber.height,
+                width: 8,
+                height: 12,
+                speed: 6,
+                color: '#ff00aa'
             });
         }
 
@@ -524,7 +615,9 @@
             if (shield > 0) {
                 shieldContainer.style.display = 'block';
                 shieldSpan.textContent = shield;
-                shieldFill.style.width = shield + '%';
+                // Calculate percentage based on max shield of 200
+                const shieldPercentage = (shield / 200) * 100;
+                shieldFill.style.width = shieldPercentage + '%';
             } else {
                 shieldContainer.style.display = 'none';
             }
@@ -786,6 +879,23 @@
             });
         }
 
+        function drawBomberPlanes() {
+            bomberPlanes.forEach(bomber => {
+                // Draw bomber plane (larger triangle)
+                ctx.fillStyle = bomber.color;
+                ctx.beginPath();
+                ctx.moveTo(bomber.x + bomber.width / 2, bomber.y);
+                ctx.lineTo(bomber.x, bomber.y + bomber.height);
+                ctx.lineTo(bomber.x + bomber.width, bomber.y + bomber.height);
+                ctx.closePath();
+                ctx.fill();
+
+                // Draw indicator stripe
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(bomber.x + bomber.width / 4, bomber.y + bomber.height / 2, bomber.width / 2, 4);
+            });
+        }
+
         function drawStars() {
             ctx.fillStyle = 'white';
             for (let i = 0; i < 50; i++) {
@@ -815,6 +925,7 @@
             enemyBullets = [];
             powerups = [];
             wingplanes = [];
+            bomberPlanes = [];
             score = 0;
             health = 100;
             shield = 0;
@@ -822,6 +933,7 @@
             tripleShot = false;
             bulletSize = 1;
             collectedBuffTypes.clear();
+            buffCollectionCount = { A: 0, B: 0, C: 0, D: 0, E: 0 };
             gameRunning = true;
             document.getElementById('score').textContent = score;
             document.getElementById('health').textContent = health;
@@ -856,10 +968,12 @@
             updateEnemyBullets();
             updatePowerups();
             updateWingplanes();
+            updateBomberPlanes();
             checkBulletCollisions();
 
             drawPlayer();
             drawWingplanes();
+            drawBomberPlanes();
             drawBullets();
             drawEnemies();
             drawPowerups();
