@@ -302,8 +302,12 @@
                 enemyType = 'shooter'; // 30% chance at 1000+ score
             }
 
+            // Enemies require 2 hits at 6000+ score
+            const baseHealth = score >= 6000 ? 2 : 1;
+
             if (enemyType === 'tank') {
-                // Tank enemy: Slow, large, high HP (requires 20 hits)
+                // Tank enemy: Slow, large, high HP
+                const tankHealth = score >= 6000 ? 40 : 20;
                 enemies.push({
                     x: Math.random() * (canvas.width - 60),
                     y: -70,
@@ -314,8 +318,8 @@
                     color: '#8800ff',
                     canShoot: false,
                     type: 'tank',
-                    health: 20,
-                    maxHealth: 20,
+                    health: tankHealth,
+                    maxHealth: tankHealth,
                     lastShot: 0
                 });
             } else if (enemyType === 'fast') {
@@ -330,7 +334,8 @@
                     color: '#00ffff',
                     canShoot: false,
                     type: 'fast',
-                    health: 1,
+                    health: baseHealth,
+                    maxHealth: baseHealth,
                     lastShot: 0
                 });
             } else if (enemyType === 'shooter') {
@@ -346,7 +351,8 @@
                     color: '#ff9900',
                     canShoot: true,
                     type: 'shooter',
-                    health: 1,
+                    health: baseHealth,
+                    maxHealth: baseHealth,
                     lastShot: 0
                 });
             } else {
@@ -361,7 +367,8 @@
                     color: '#ff4444',
                     canShoot: false,
                     type: 'normal',
-                    health: 1,
+                    health: baseHealth,
+                    maxHealth: baseHealth,
                     lastShot: 0
                 });
             }
@@ -511,11 +518,13 @@
                     y: player.y,
                     width: 12,
                     height: 24,
-                    speed: 10,
+                    speed: 12,
+                    maxSpeed: 15,
+                    acceleration: 0.15,
                     velocityX: 0, // Start going straight
-                    velocityY: -6,
+                    velocityY: -3, // Start slower
                     target: target,
-                    trackingStrength: 0.4, // Fixed tracking strength
+                    trackingStrength: 0.35, // Fixed tracking strength
                     color: '#ff0000',
                     trail: []
                 });
@@ -538,7 +547,13 @@
                     }
                 }
 
-                // Homing behavior with random tracking
+                // Accelerate missile gradually
+                const currentSpeed = Math.sqrt(missile.velocityX ** 2 + missile.velocityY ** 2);
+                if (currentSpeed < missile.maxSpeed) {
+                    missile.speed = Math.min(missile.speed + missile.acceleration, missile.maxSpeed);
+                }
+
+                // Homing behavior
                 if (missile.target) {
                     const targetX = missile.target.x + missile.target.width / 2;
                     const targetY = missile.target.y + missile.target.height / 2;
@@ -554,11 +569,11 @@
                     }
                 }
 
-                // Limit speed
-                const currentSpeed = Math.sqrt(missile.velocityX ** 2 + missile.velocityY ** 2);
-                if (currentSpeed > missile.speed) {
-                    missile.velocityX = (missile.velocityX / currentSpeed) * missile.speed;
-                    missile.velocityY = (missile.velocityY / currentSpeed) * missile.speed;
+                // Limit speed to current max
+                const newSpeed = Math.sqrt(missile.velocityX ** 2 + missile.velocityY ** 2);
+                if (newSpeed > missile.speed) {
+                    missile.velocityX = (missile.velocityX / newSpeed) * missile.speed;
+                    missile.velocityY = (missile.velocityY / newSpeed) * missile.speed;
                 }
 
                 // Update position
@@ -1333,6 +1348,15 @@
                     ctx.lineTo(enemy.x, enemy.y + enemy.height / 2);
                     ctx.closePath();
                     ctx.fill();
+
+                    // Show health bar if maxHealth is 2
+                    if (enemy.maxHealth === 2 && enemy.health < enemy.maxHealth) {
+                        ctx.fillStyle = '#000000';
+                        ctx.fillRect(enemy.x, enemy.y - 6, enemy.width, 4);
+                        ctx.fillStyle = '#00ff00';
+                        const healthBarWidth = (enemy.health / enemy.maxHealth) * enemy.width;
+                        ctx.fillRect(enemy.x, enemy.y - 6, healthBarWidth, 4);
+                    }
                 } else {
                     // Normal/Shooter: Rectangle
                     ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
@@ -1341,6 +1365,15 @@
                     if (enemy.canShoot) {
                         ctx.fillStyle = '#ffff00';
                         ctx.fillRect(enemy.x + enemy.width / 2 - 3, enemy.y + 5, 6, 6);
+                    }
+
+                    // Show health bar if maxHealth is 2
+                    if (enemy.maxHealth === 2 && enemy.health < enemy.maxHealth) {
+                        ctx.fillStyle = '#000000';
+                        ctx.fillRect(enemy.x, enemy.y - 6, enemy.width, 4);
+                        ctx.fillStyle = '#00ff00';
+                        const healthBarWidth = (enemy.health / enemy.maxHealth) * enemy.width;
+                        ctx.fillRect(enemy.x, enemy.y - 6, healthBarWidth, 4);
                     }
                 }
             });
@@ -1525,8 +1558,8 @@
                 width: 250,
                 height: 150,
                 speed: 0.4,
-                health: 1000,
-                maxHealth: 1000,
+                health: 1500,
+                maxHealth: 1500,
                 type: 'boss',
                 phase: 1,
                 lastShot: 0,
@@ -1861,9 +1894,9 @@
                         createEnemy();
                     }
                 } else {
-                    // Start with 1 enemy, gradually increase to 4 based on score
+                    // Start with 1 enemy, gradually increase to 6 based on score
                     const baseEnemies = 1;
-                    const bonusEnemies = Math.min(Math.floor(score / 1000), 3);
+                    const bonusEnemies = Math.min(Math.floor(score / 1000), 5); // Up to 5 bonus enemies
                     const totalEnemies = baseEnemies + bonusEnemies;
 
                     for (let i = 0; i < totalEnemies; i++) {
