@@ -544,9 +544,9 @@
         function shootMissiles() {
             if (missileCharges <= 0) return;
 
-            // Shoot 4 missiles with horizontal spread
-            const spreadAngles = [-30, -10, 10, 30]; // Horizontal injection angles
-            for (let i = 0; i < 4; i++) {
+            // Shoot 6 missiles with horizontal spread
+            const spreadAngles = [-40, -24, -8, 8, 24, 40]; // Horizontal injection angles
+            for (let i = 0; i < 6; i++) {
                 // Find a random target (enemy or boss)
                 let target = null;
                 const allTargets = [...enemies];
@@ -766,7 +766,7 @@
                     const explosionX = missile.x;
                     const explosionY = missile.y;
 
-                    boss.health -= 10; // Missile does 10 damage to boss
+                    boss.health -= 15; // Missile does 15 damage to boss
 
                     if (boss.health <= 0) {
                         score += 5000;
@@ -2065,25 +2065,25 @@
             }
         }, 800);
 
-        // Spawn powerups periodically - base 5 seconds, increases with score
+        // Spawn powerups periodically - base 3 seconds for frequent spawning
         setInterval(() => {
             if (gameRunning) {
                 // Calculate spawn chance based on score
-                let baseChance = 0.6; // 60% base chance
-                const scoreBonus = Math.min(score / 3000, 0.4); // Up to 40% bonus at 3000+ score
+                let baseChance = 0.85; // 85% base chance (increased from 60%)
+                const scoreBonus = Math.min(score / 3000, 0.15); // Up to 15% bonus at 3000+ score
 
                 // Sharply increase probability when player has < 4 buff types
                 const activeBuffTypes = collectedBuffTypes.size;
                 if (activeBuffTypes < 4) {
                     // Sharp increase based on how few buff types the player has
                     if (activeBuffTypes === 0) {
-                        baseChance = 0.95; // 95% chance with no buff types
+                        baseChance = 0.98; // 98% chance with no buff types
                     } else if (activeBuffTypes === 1) {
-                        baseChance = 0.90; // 90% chance with 1 buff type
+                        baseChance = 0.95; // 95% chance with 1 buff type
                     } else if (activeBuffTypes === 2) {
-                        baseChance = 0.85; // 85% chance with 2 buff types
+                        baseChance = 0.92; // 92% chance with 2 buff types
                     } else if (activeBuffTypes === 3) {
-                        baseChance = 0.75; // 75% chance with 3 buff types
+                        baseChance = 0.88; // 88% chance with 3 buff types
                     }
                 }
 
@@ -2093,7 +2093,7 @@
                     createPowerup();
                 }
             }
-        }, 5000);
+        }, 3000); // 3 seconds (reduced from 5 seconds) for more frequent spawning
 
         // Start auto-fire
         startAutoFire();
