@@ -135,9 +135,13 @@
                 <div class="shield-fill" id="shieldFill" style="width: 0%"></div>
             </div>
         </div>
-        <div id="missileContainer" style="display: none;">
-            Missiles: 🚀 <span id="missileCountDisplay">0</span>
-            <span id="missilePrompt" style="color: #ffff00; margin-left: 10px; display: none;">Press SPACE to shoot</span>
+        <div id="missileContainer">
+            Missile: 🚀 <span id="missileCharges">1</span>/1
+            <span style="color: #ffff00; margin-left: 10px;">Press SPACE</span>
+        </div>
+        <div id="atomicBombContainer" style="display: none;">
+            Atomic Bomb: 💣 <span id="atomicBombCount">0</span>
+            <span id="atomicBombPrompt" style="color: #ff0000; margin-left: 10px; display: none;">Press D to drop</span>
         </div>
     </div>
 
@@ -185,20 +189,29 @@
         let explosions = [];
         let boss = null;
         let bossSpawned = false;
-        let missileCount = 0;
+        let missileCharges = 1;
+        let maxMissileCharges = 1;
+        let lastMissileTime = 0;
+        let missileRechargeTime = 2500; // 2.5 seconds
         let missiles = [];
         let missileParticles = [];
-        let hasShownMissilePrompt = false;
+        let atomicBombCount = 0;
+        let hasShownAtomicBombPrompt = false;
 
         // Controls
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             if (e.key === ' ' && gameRunning) {
-                if (missileCount > 0) {
+                if (missileCharges > 0) {
                     shootMissiles();
                 } else {
                     shootBullet();
                 }
+            }
+
+            // Atomic bomb
+            if ((e.key === 'd' || e.key === 'D') && gameRunning && atomicBombCount > 0) {
+                dropAtomicBomb();
             }
 
             // Score cheat key
@@ -384,6 +397,12 @@
             let weights = types.map(type => {
                 // Base weight is 1
                 let weight = 1;
+
+                // Atomic bombs (F) are much rarer
+                if (type === 'F') {
+                    weight = 0.15; // 15% of normal weight
+                }
+
                 // If this type hasn't been collected, increase weight
                 if (!collectedBuffTypes.has(type)) {
                     weight *= 2;
@@ -482,35 +501,48 @@
                     spawnBomberPlane('right');
                 }
             } else if (type === 'F') {
-                // Missile system - 5 shots, each shoots 3 homing missiles
-                // Can stack up to 10 total
-                missileCount = Math.min(missileCount + 5, 10);
-                updateMissileDisplay();
+                // Atomic bomb - can stack up to 3
+                atomicBombCount = Math.min(atomicBombCount + 1, 3);
+                updateAtomicBombDisplay();
             }
         }
 
         function updateMissileDisplay() {
-            const missileContainer = document.getElementById('missileContainer');
-            const missileCountDisplay = document.getElementById('missileCountDisplay');
-            const missilePrompt = document.getElementById('missilePrompt');
+            const missileChargesDisplay = document.getElementById('missileCharges');
+            missileChargesDisplay.textContent = missileCharges;
+        }
 
-            if (missileCount > 0) {
-                missileContainer.style.display = 'block';
-                missileCountDisplay.textContent = missileCount;
+        function updateAtomicBombDisplay() {
+            const atomicBombContainer = document.getElementById('atomicBombContainer');
+            const atomicBombCountDisplay = document.getElementById('atomicBombCount');
+            const atomicBombPrompt = document.getElementById('atomicBombPrompt');
 
-                // Show prompt only the first time player gets missiles
-                if (!hasShownMissilePrompt) {
-                    missilePrompt.style.display = 'inline';
-                    hasShownMissilePrompt = true;
+            if (atomicBombCount > 0) {
+                atomicBombContainer.style.display = 'block';
+                atomicBombCountDisplay.textContent = atomicBombCount;
+
+                // Show prompt only the first time player gets atomic bomb
+                if (!hasShownAtomicBombPrompt) {
+                    atomicBombPrompt.style.display = 'inline';
+                    hasShownAtomicBombPrompt = true;
                 }
             } else {
-                missileContainer.style.display = 'none';
-                missilePrompt.style.display = 'none';
+                atomicBombContainer.style.display = 'none';
+                atomicBombPrompt.style.display = 'none';
+            }
+        }
+
+        function rechargeMissiles() {
+            const currentTime = Date.now();
+            if (missileCharges < maxMissileCharges && currentTime - lastMissileTime >= missileRechargeTime) {
+                missileCharges++;
+                lastMissileTime = currentTime;
+                updateMissileDisplay();
             }
         }
 
         function shootMissiles() {
-            if (missileCount <= 0) return;
+            if (missileCharges <= 0) return;
 
             // Shoot 4 missiles with horizontal spread
             const spreadAngles = [-30, -10, 10, 30]; // Horizontal injection angles
@@ -546,8 +578,69 @@
                 });
             }
 
-            missileCount--;
+            missileCharges--;
+            lastMissileTime = Date.now();
             updateMissileDisplay();
+        }
+
+        function dropAtomicBomb() {
+            if (atomicBombCount <= 0) return;
+
+            // Kill all enemies on screen
+            const killedEnemies = enemies.length;
+            enemies.forEach(enemy => {
+                // Award points for each killed enemy
+                if (enemy.type === 'tank') {
+                    score += 75;
+                } else if (enemy.type === 'fast') {
+                    score += 50;
+                } else {
+                    score += 25;
+                }
+            });
+            enemies = [];
+
+            // Damage boss
+            if (boss) {
+                boss.health -= 500;
+                if (boss.health <= 0) {
+                    score += 5000;
+                    boss = null;
+                    // Game over when boss is defeated
+                    gameRunning = false;
+                    document.getElementById('finalScore').textContent = score;
+                    document.getElementById('gameOver').style.display = 'flex';
+                }
+            }
+
+            document.getElementById('score').textContent = score;
+
+            // Create massive explosion effect
+            explosions.push({
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                radius: 0,
+                maxRadius: canvas.width * 1.5, // Cover entire screen
+                opacity: 1,
+                startTime: Date.now(),
+                isAtomic: true
+            });
+
+            // Create many particles for visual effect
+            for (let i = 0; i < 200; i++) {
+                missileParticles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 0.5) * 20,
+                    life: 60,
+                    maxLife: 60,
+                    color: '#ff' + Math.floor(Math.random() * 255).toString(16).padStart(2, '0') + '00'
+                });
+            }
+
+            atomicBombCount--;
+            updateAtomicBombDisplay();
         }
 
         function updateMissiles() {
@@ -790,7 +883,7 @@
             tripleShot = false;
             health = 100;
             shield = 200; // Max shield
-            missileCount = 5; // Add missiles
+            atomicBombCount = 3; // Add atomic bombs
 
             // Spawn wingplanes if not already present
             if (wingplanes.length === 0) {
@@ -810,7 +903,7 @@
             // Update displays
             document.getElementById('health').textContent = health;
             updateShieldDisplay();
-            updateMissileDisplay();
+            updateAtomicBombDisplay();
             startAutoFire();
         }
 
@@ -972,8 +1065,8 @@
         function updateExplosions() {
             const currentTime = Date.now();
             explosions = explosions.filter(explosion => {
+                const duration = explosion.isAtomic ? 1500 : 500; // Atomic explosions last longer
                 const elapsed = currentTime - explosion.startTime;
-                const duration = 500; // 500ms explosion animation
 
                 if (elapsed >= duration) {
                     return false;
@@ -1491,25 +1584,54 @@
 
         function drawExplosions() {
             explosions.forEach(explosion => {
-                // Draw expanding explosion ring
-                ctx.strokeStyle = `rgba(255, 100, 0, ${explosion.opacity})`;
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
-                ctx.stroke();
+                if (explosion.isAtomic) {
+                    // Draw massive atomic explosion
+                    // Outer shockwave
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${explosion.opacity * 0.6})`;
+                    ctx.lineWidth = 20;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+                    ctx.stroke();
 
-                // Draw inner bright flash
-                ctx.fillStyle = `rgba(255, 200, 0, ${explosion.opacity * 0.5})`;
-                ctx.beginPath();
-                ctx.arc(explosion.x, explosion.y, explosion.radius * 0.6, 0, Math.PI * 2);
-                ctx.fill();
+                    // Middle ring
+                    ctx.strokeStyle = `rgba(255, 100, 0, ${explosion.opacity})`;
+                    ctx.lineWidth = 15;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius * 0.7, 0, Math.PI * 2);
+                    ctx.stroke();
 
-                // Draw outer glow
-                ctx.strokeStyle = `rgba(255, 150, 0, ${explosion.opacity * 0.3})`;
-                ctx.lineWidth = 8;
-                ctx.beginPath();
-                ctx.arc(explosion.x, explosion.y, explosion.radius * 1.2, 0, Math.PI * 2);
-                ctx.stroke();
+                    // Inner bright flash
+                    ctx.fillStyle = `rgba(255, 255, 255, ${explosion.opacity * 0.8})`;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Massive glow
+                    ctx.fillStyle = `rgba(255, 150, 0, ${explosion.opacity * 0.2})`;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius * 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Draw normal explosion ring
+                    ctx.strokeStyle = `rgba(255, 100, 0, ${explosion.opacity})`;
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Draw inner bright flash
+                    ctx.fillStyle = `rgba(255, 200, 0, ${explosion.opacity * 0.5})`;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw outer glow
+                    ctx.strokeStyle = `rgba(255, 150, 0, ${explosion.opacity * 0.3})`;
+                    ctx.lineWidth = 8;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius * 1.2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
             });
         }
 
@@ -1546,8 +1668,10 @@
             explosions = [];
             missiles = [];
             missileParticles = [];
-            missileCount = 0;
-            hasShownMissilePrompt = false;
+            missileCharges = 1;
+            lastMissileTime = 0;
+            atomicBombCount = 0;
+            hasShownAtomicBombPrompt = false;
             boss = null;
             bossSpawned = false;
             score = 0;
@@ -1563,6 +1687,7 @@
             document.getElementById('health').textContent = health;
             updateShieldDisplay();
             updateMissileDisplay();
+            updateAtomicBombDisplay();
             document.getElementById('gameOver').style.display = 'none';
             startAutoFire();
             startAutoScore();
@@ -1900,6 +2025,7 @@
             updateExplosions();
             updateMissiles();
             updateMissileParticles();
+            rechargeMissiles();
             checkBulletCollisions();
             checkBossBulletCollisions();
 
