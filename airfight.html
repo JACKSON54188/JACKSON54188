@@ -197,6 +197,7 @@
         let missileParticles = [];
         let atomicBombCount = 0;
         let hasShownAtomicBombPrompt = false;
+        let infiniteMissiles = false;
 
         // Controls
         document.addEventListener('keydown', (e) => {
@@ -218,6 +219,15 @@
             if (e.key === '0' && gameRunning) {
                 score += 15000;
                 document.getElementById('score').textContent = score;
+            }
+
+            // Infinite missiles toggle
+            if (e.key === '1' && gameRunning) {
+                infiniteMissiles = !infiniteMissiles;
+                if (infiniteMissiles) {
+                    missileCharges = maxMissileCharges;
+                    updateMissileDisplay();
+                }
             }
 
             // Cheat code detection
@@ -533,6 +543,15 @@
         }
 
         function rechargeMissiles() {
+            // Keep missiles at max if infinite missiles is active
+            if (infiniteMissiles) {
+                if (missileCharges < maxMissileCharges) {
+                    missileCharges = maxMissileCharges;
+                    updateMissileDisplay();
+                }
+                return;
+            }
+
             const currentTime = Date.now();
             if (missileCharges < maxMissileCharges && currentTime - lastMissileTime >= missileRechargeTime) {
                 missileCharges++;
@@ -578,8 +597,11 @@
                 });
             }
 
-            missileCharges--;
-            lastMissileTime = Date.now();
+            // Only consume charge if not infinite missiles
+            if (!infiniteMissiles) {
+                missileCharges--;
+                lastMissileTime = Date.now();
+            }
             updateMissileDisplay();
         }
 
@@ -1404,14 +1426,55 @@
                 }
             }
 
-            // Draw player
-            ctx.fillStyle = player.color;
+            // Draw player as F-22 fighter jet
+            ctx.save();
+
+            // Main body (fuselage)
+            ctx.fillStyle = '#00aaff';
+            ctx.fillRect(player.x + player.width/2 - 8, player.y + 10, 16, 30);
+
+            // Nose cone
+            ctx.fillStyle = '#0088cc';
             ctx.beginPath();
-            ctx.moveTo(player.x + player.width / 2, player.y);
-            ctx.lineTo(player.x, player.y + player.height);
-            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.moveTo(player.x + player.width/2, player.y);
+            ctx.lineTo(player.x + player.width/2 - 8, player.y + 10);
+            ctx.lineTo(player.x + player.width/2 + 8, player.y + 10);
             ctx.closePath();
             ctx.fill();
+
+            // Main wings
+            ctx.fillStyle = '#0099dd';
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width/2 - 8, player.y + 20);
+            ctx.lineTo(player.x, player.y + 35);
+            ctx.lineTo(player.x + player.width/2 - 8, player.y + 35);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width/2 + 8, player.y + 20);
+            ctx.lineTo(player.x + player.width, player.y + 35);
+            ctx.lineTo(player.x + player.width/2 + 8, player.y + 35);
+            ctx.closePath();
+            ctx.fill();
+
+            // Tail fins
+            ctx.fillStyle = '#0077bb';
+            ctx.fillRect(player.x + player.width/2 - 6, player.y + 35, 4, 8);
+            ctx.fillRect(player.x + player.width/2 + 2, player.y + 35, 4, 8);
+
+            // Cockpit
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(player.x + player.width/2, player.y + 15, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Engine glow
+            ctx.fillStyle = '#ff6600';
+            ctx.fillRect(player.x + player.width/2 - 5, player.y + 38, 3, 5);
+            ctx.fillRect(player.x + player.width/2 + 2, player.y + 38, 3, 5);
+
+            ctx.restore();
         }
 
         function drawBullets() {
@@ -1434,15 +1497,34 @@
             enemies.forEach(enemy => {
                 ctx.fillStyle = enemy.color;
 
-                // Draw different shapes based on enemy type
+                // Draw different aircraft based on enemy type
                 if (enemy.type === 'tank') {
-                    // Tank: Large square with armor plating
-                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    // Tank: Heavy bomber aircraft
+                    ctx.save();
 
-                    // Draw armor indicator
+                    // Main fuselage (thick and heavy)
+                    ctx.fillStyle = '#cc3333';
+                    ctx.fillRect(enemy.x + enemy.width/2 - 12, enemy.y, 24, 35);
+
+                    // Wings (wide and straight)
+                    ctx.fillStyle = '#aa2222';
+                    ctx.fillRect(enemy.x + 2, enemy.y + 15, enemy.width - 4, 8);
+
+                    // Tail section
+                    ctx.fillStyle = '#882222';
+                    ctx.fillRect(enemy.x + enemy.width/2 - 8, enemy.y, 16, 5);
+
+                    // Armor plates
                     ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(enemy.x + 5, enemy.y + 5, enemy.width - 10, enemy.height - 10);
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(enemy.x + enemy.width/2 - 10, enemy.y + 10, 20, 20);
+
+                    // Engine pods
+                    ctx.fillStyle = '#ff4444';
+                    ctx.fillRect(enemy.x + 8, enemy.y + 20, 6, 12);
+                    ctx.fillRect(enemy.x + enemy.width - 14, enemy.y + 20, 6, 12);
+
+                    ctx.restore();
 
                     // Draw health bar background
                     ctx.fillStyle = '#000000';
@@ -1462,14 +1544,49 @@
                     }
                     ctx.fillRect(enemy.x, enemy.y - 8, healthBarWidth, 6);
                 } else if (enemy.type === 'fast') {
-                    // Fast: Diamond shape
+                    // Fast: Sleek interceptor aircraft
+                    ctx.save();
+
+                    // Streamlined body
+                    ctx.fillStyle = '#ff6600';
                     ctx.beginPath();
-                    ctx.moveTo(enemy.x + enemy.width / 2, enemy.y);
-                    ctx.lineTo(enemy.x + enemy.width, enemy.y + enemy.height / 2);
-                    ctx.lineTo(enemy.x + enemy.width / 2, enemy.y + enemy.height);
-                    ctx.lineTo(enemy.x, enemy.y + enemy.height / 2);
+                    ctx.moveTo(enemy.x + enemy.width/2, enemy.y);
+                    ctx.lineTo(enemy.x + enemy.width/2 - 6, enemy.y + 8);
+                    ctx.lineTo(enemy.x + enemy.width/2 - 8, enemy.y + 25);
+                    ctx.lineTo(enemy.x + enemy.width/2 + 8, enemy.y + 25);
+                    ctx.lineTo(enemy.x + enemy.width/2 + 6, enemy.y + 8);
                     ctx.closePath();
                     ctx.fill();
+
+                    // Swept wings
+                    ctx.fillStyle = '#ff8800';
+                    ctx.beginPath();
+                    ctx.moveTo(enemy.x + enemy.width/2 - 8, enemy.y + 12);
+                    ctx.lineTo(enemy.x, enemy.y + 18);
+                    ctx.lineTo(enemy.x + enemy.width/2 - 6, enemy.y + 18);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.moveTo(enemy.x + enemy.width/2 + 8, enemy.y + 12);
+                    ctx.lineTo(enemy.x + enemy.width, enemy.y + 18);
+                    ctx.lineTo(enemy.x + enemy.width/2 + 6, enemy.y + 18);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Speed trails
+                    ctx.strokeStyle = '#ffaa44';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(enemy.x + enemy.width/2 - 4, enemy.y + 20);
+                    ctx.lineTo(enemy.x + enemy.width/2 - 4, enemy.y + 28);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(enemy.x + enemy.width/2 + 4, enemy.y + 20);
+                    ctx.lineTo(enemy.x + enemy.width/2 + 4, enemy.y + 28);
+                    ctx.stroke();
+
+                    ctx.restore();
 
                     // Show health bar if maxHealth is 2
                     if (enemy.maxHealth === 2 && enemy.health < enemy.maxHealth) {
@@ -1480,14 +1597,38 @@
                         ctx.fillRect(enemy.x, enemy.y - 6, healthBarWidth, 4);
                     }
                 } else {
-                    // Normal/Shooter: Rectangle
-                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    // Normal/Shooter: Standard fighter aircraft
+                    ctx.save();
 
-                    // Draw indicator for shooting enemies
+                    // Main body
+                    ctx.fillStyle = enemy.color;
+                    ctx.fillRect(enemy.x + enemy.width/2 - 6, enemy.y + 5, 12, 25);
+
+                    // Nose
+                    ctx.beginPath();
+                    ctx.moveTo(enemy.x + enemy.width/2, enemy.y);
+                    ctx.lineTo(enemy.x + enemy.width/2 - 6, enemy.y + 5);
+                    ctx.lineTo(enemy.x + enemy.width/2 + 6, enemy.y + 5);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Wings
+                    ctx.fillStyle = enemy.color;
+                    ctx.fillRect(enemy.x + 5, enemy.y + 15, enemy.width - 10, 6);
+
+                    // Tail fins
+                    ctx.fillRect(enemy.x + enemy.width/2 - 4, enemy.y + 28, 3, 5);
+                    ctx.fillRect(enemy.x + enemy.width/2 + 1, enemy.y + 28, 3, 5);
+
+                    // Draw weapon indicator for shooting enemies
                     if (enemy.canShoot) {
                         ctx.fillStyle = '#ffff00';
-                        ctx.fillRect(enemy.x + enemy.width / 2 - 3, enemy.y + 5, 6, 6);
+                        ctx.beginPath();
+                        ctx.arc(enemy.x + enemy.width/2, enemy.y + 10, 3, 0, Math.PI * 2);
+                        ctx.fill();
                     }
+
+                    ctx.restore();
 
                     // Show health bar if maxHealth is 2
                     if (enemy.maxHealth === 2 && enemy.health < enemy.maxHealth) {
@@ -1554,14 +1695,44 @@
                     ctx.stroke();
                 }
 
-                // Draw wingplane
-                ctx.fillStyle = wingplane.color;
+                // Draw wingplane as smaller support fighter
+                ctx.save();
+
+                // Main body
+                ctx.fillStyle = '#00cc66';
+                ctx.fillRect(wingplane.x + wingplane.width/2 - 5, wingplane.y + 8, 10, 20);
+
+                // Nose
+                ctx.fillStyle = '#00aa55';
                 ctx.beginPath();
-                ctx.moveTo(wingplane.x + wingplane.width / 2, wingplane.y);
-                ctx.lineTo(wingplane.x, wingplane.y + wingplane.height);
-                ctx.lineTo(wingplane.x + wingplane.width, wingplane.y + wingplane.height);
+                ctx.moveTo(wingplane.x + wingplane.width/2, wingplane.y);
+                ctx.lineTo(wingplane.x + wingplane.width/2 - 5, wingplane.y + 8);
+                ctx.lineTo(wingplane.x + wingplane.width/2 + 5, wingplane.y + 8);
                 ctx.closePath();
                 ctx.fill();
+
+                // Wings
+                ctx.fillStyle = '#00bb5a';
+                ctx.beginPath();
+                ctx.moveTo(wingplane.x + wingplane.width/2 - 5, wingplane.y + 15);
+                ctx.lineTo(wingplane.x + 2, wingplane.y + 23);
+                ctx.lineTo(wingplane.x + wingplane.width/2 - 5, wingplane.y + 23);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.moveTo(wingplane.x + wingplane.width/2 + 5, wingplane.y + 15);
+                ctx.lineTo(wingplane.x + wingplane.width - 2, wingplane.y + 23);
+                ctx.lineTo(wingplane.x + wingplane.width/2 + 5, wingplane.y + 23);
+                ctx.closePath();
+                ctx.fill();
+
+                // Engine glow
+                ctx.fillStyle = '#ff9900';
+                ctx.fillRect(wingplane.x + wingplane.width/2 - 3, wingplane.y + 26, 2, 3);
+                ctx.fillRect(wingplane.x + wingplane.width/2 + 1, wingplane.y + 26, 2, 3);
+
+                ctx.restore();
             });
         }
 
