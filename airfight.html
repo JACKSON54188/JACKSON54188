@@ -163,7 +163,11 @@
             width: 50,
             height: 50,
             speed: 3,
-            color: '#00ff87'
+            color: '#00ff87',
+            velocityX: 0,
+            velocityY: 0,
+            acceleration: 0.4,
+            friction: 0.85
         };
 
         let bullets = [];
@@ -1243,17 +1247,49 @@
         }
 
         function updatePlayer() {
-            if (keys['ArrowLeft'] && player.x > 0) {
-                player.x -= player.speed;
+            // Apply acceleration based on input
+            if (keys['ArrowLeft']) {
+                player.velocityX -= player.acceleration;
             }
-            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
-                player.x += player.speed;
+            if (keys['ArrowRight']) {
+                player.velocityX += player.acceleration;
             }
-            if (keys['ArrowUp'] && player.y > 0) {
-                player.y -= player.speed;
+            if (keys['ArrowUp']) {
+                player.velocityY -= player.acceleration;
             }
-            if (keys['ArrowDown'] && player.y < canvas.height - player.height) {
-                player.y += player.speed;
+            if (keys['ArrowDown']) {
+                player.velocityY += player.acceleration;
+            }
+
+            // Apply friction to simulate drag
+            player.velocityX *= player.friction;
+            player.velocityY *= player.friction;
+
+            // Cap maximum velocity
+            const maxVelocity = player.speed;
+            player.velocityX = Math.max(-maxVelocity, Math.min(maxVelocity, player.velocityX));
+            player.velocityY = Math.max(-maxVelocity, Math.min(maxVelocity, player.velocityY));
+
+            // Update position
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+
+            // Keep player within bounds
+            if (player.x < 0) {
+                player.x = 0;
+                player.velocityX = 0;
+            }
+            if (player.x > canvas.width - player.width) {
+                player.x = canvas.width - player.width;
+                player.velocityX = 0;
+            }
+            if (player.y < 0) {
+                player.y = 0;
+                player.velocityY = 0;
+            }
+            if (player.y > canvas.height - player.height) {
+                player.y = canvas.height - player.height;
+                player.velocityY = 0;
             }
         }
 
@@ -1830,6 +1866,8 @@
         function restartGame() {
             player.x = canvas.width / 2 - 25;
             player.y = canvas.height - 80;
+            player.velocityX = 0;
+            player.velocityY = 0;
             bullets = [];
             enemies = [];
             enemyBullets = [];
